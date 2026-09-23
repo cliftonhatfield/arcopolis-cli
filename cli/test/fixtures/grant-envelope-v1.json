@@ -1,0 +1,101 @@
+{
+  "description": "Synthetic CLI grant envelope test vector (plan section 2.7). Keys, salt, iv, and API key strings are derived from fixed labels and are not real secrets. Regenerate with node developers/scripts/generate-cli-grant-envelope-fixture.mjs.",
+  "alg": "ECDH-ES+HKDF-SHA256+A256GCM",
+  "userCode": "WDJB-MJHT",
+  "normalizedUserCode": "WDJBMJHT",
+  "cliPrivateKeyJwk": {
+    "kty": "EC",
+    "crv": "P-256",
+    "x": "69sQZ9Izm8rrwqFD-u1C52nk4nyGo9ouzbYDsi6elcQ",
+    "y": "iptXJa7EC41kgApZt-KwngAuFK-XtWYwz66wU-cln4k",
+    "d": "lAn33qAkVrfLZ8mmd9eZwok_zGmFz96xddAYgUdlZiE"
+  },
+  "cliPublicKeyJwk": {
+    "kty": "EC",
+    "crv": "P-256",
+    "x": "69sQZ9Izm8rrwqFD-u1C52nk4nyGo9ouzbYDsi6elcQ",
+    "y": "iptXJa7EC41kgApZt-KwngAuFK-XtWYwz66wU-cln4k"
+  },
+  "cliKeyThumbprint": "1rS4odGiQ3U-uMalnyJNpIblbO1zZ_FOVFlFQNoiNOg",
+  "ephemeralPrivateKeyJwk": {
+    "kty": "EC",
+    "crv": "P-256",
+    "x": "bIFvTWi3al75RlincjzrxTQEkaRuu1XMIgMsq7ehrVA",
+    "y": "O6rSk1H4NrtLh8ZznknfLh79SZiuk41nToEH12pCt1w",
+    "d": "6sZP2w620jJvbz6_sggmwNI046B1TWqBsieRR8O737A"
+  },
+  "info": "arcopolis-cli-grant-v1|WDJBMJHT|1rS4odGiQ3U-uMalnyJNpIblbO1zZ_FOVFlFQNoiNOg",
+  "salt": "eDzgcCCi-Ke2pvlnFS388Q",
+  "iv": "0xN7nLBNciGaXFgq",
+  "payload": {
+    "v": 1,
+    "userCode": "WDJBMJHT",
+    "approvedAt": "2026-09-23T15:00:00.000Z",
+    "account": {
+      "uid": "test-developer-uid",
+      "email": "dev@example.com"
+    },
+    "apiBase": "https://api.arcopolis.ai/v1",
+    "app": {
+      "id": "test-app-id",
+      "name": "my-project",
+      "created": true
+    },
+    "readKey": {
+      "id": "test-read-key-id",
+      "key": "agnts_2ea17d06658d48798dfe64cbe78f21ef7681ed0ea551b06e41dfe982ee8959e8",
+      "name": "my-project CLI 7f3a9c",
+      "tier": 1,
+      "scopes": [
+        "agents:read",
+        "posts:read",
+        "trending:read",
+        "search:read",
+        "topics:read"
+      ],
+      "rateLimitPerMinute": 60,
+      "action": "created"
+    },
+    "visitor": {
+      "agentId": "test-visitor-agent-id",
+      "handle": "visitor-my-project",
+      "worldId": "test-world-id",
+      "keyId": "test-drive-key-id",
+      "key": "agnts_4a792722b9ca3276c06f6f24f6d119e3d21aff2bb383458f74bf424321624721",
+      "tier": 2,
+      "scopes": [
+        "agents:drive"
+      ],
+      "rateLimitPerMinute": 60,
+      "driveDailyBudget": 25,
+      "keyCreatedAt": "2026-09-23T15:00:00.000Z",
+      "action": "registered"
+    },
+    "terms": {
+      "developer": {
+        "version": "2026-07-20",
+        "url": "https://developers.arcologylabs.com/developer-api-terms.html"
+      },
+      "visitorCorpus": {
+        "version": "2026-09-16",
+        "text": "Visitor text becomes part of the research corpus."
+      },
+      "acceptedAt": "2026-09-23T15:00:00.000Z"
+    },
+    "warnings": []
+  },
+  "payloadJson": "{\"v\":1,\"userCode\":\"WDJBMJHT\",\"approvedAt\":\"2026-09-23T15:00:00.000Z\",\"account\":{\"uid\":\"test-developer-uid\",\"email\":\"dev@example.com\"},\"apiBase\":\"https://api.arcopolis.ai/v1\",\"app\":{\"id\":\"test-app-id\",\"name\":\"my-project\",\"created\":true},\"readKey\":{\"id\":\"test-read-key-id\",\"key\":\"agnts_2ea17d06658d48798dfe64cbe78f21ef7681ed0ea551b06e41dfe982ee8959e8\",\"name\":\"my-project CLI 7f3a9c\",\"tier\":1,\"scopes\":[\"agents:read\",\"posts:read\",\"trending:read\",\"search:read\",\"topics:read\"],\"rateLimitPerMinute\":60,\"action\":\"created\"},\"visitor\":{\"agentId\":\"test-visitor-agent-id\",\"handle\":\"visitor-my-project\",\"worldId\":\"test-world-id\",\"keyId\":\"test-drive-key-id\",\"key\":\"agnts_4a792722b9ca3276c06f6f24f6d119e3d21aff2bb383458f74bf424321624721\",\"tier\":2,\"scopes\":[\"agents:drive\"],\"rateLimitPerMinute\":60,\"driveDailyBudget\":25,\"keyCreatedAt\":\"2026-09-23T15:00:00.000Z\",\"action\":\"registered\"},\"terms\":{\"developer\":{\"version\":\"2026-07-20\",\"url\":\"https://developers.arcologylabs.com/developer-api-terms.html\"},\"visitorCorpus\":{\"version\":\"2026-09-16\",\"text\":\"Visitor text becomes part of the research corpus.\"},\"acceptedAt\":\"2026-09-23T15:00:00.000Z\"},\"warnings\":[]}",
+  "envelope": {
+    "v": 1,
+    "alg": "ECDH-ES+HKDF-SHA256+A256GCM",
+    "epk": {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "bIFvTWi3al75RlincjzrxTQEkaRuu1XMIgMsq7ehrVA",
+      "y": "O6rSk1H4NrtLh8ZznknfLh79SZiuk41nToEH12pCt1w"
+    },
+    "salt": "eDzgcCCi-Ke2pvlnFS388Q",
+    "iv": "0xN7nLBNciGaXFgq",
+    "ct": "DW428Hk5Pq5zYjkcmSE0BiaffCHRdYA6SyQu2YRRPAOYQrhCfggKrphhztMJbxSloIEBdyGDzmtQ84_Qy0Bo7KlovLI5lnmgTIN6grWHoKOWuAAC-I1weQv9--W6hPSFhhExRVtPTgoCsd9K4Bdjbi8Q2ApI4V5uCzflYqaTEJW3sd80dingiwGb72a5HG3KOR4ELWW8JTmKhIbTDmJ5WJYNWHZP03SVtNsVe4oYjJxIvIzjRpd0puz-wws7_oZloXOPuMtlQJXd7HN_0Su3MGRtJSF21kZxTEHQaAIU_r7F7AnkagHjPfQR6ZdsPAv4b_Kw8ev3_14pOMbvSo1slVn-Qi3RRX_VGartVgqx9qr8KIhC0vCyvUcjMcg13laiOX1wq8LO0uwP4WsTQ2a7xF90WXhcrELkSQSyq_uWiVHPjcppX80-ZgSJBtyLg9EJZ-kP4k74YxNKjpnMotJKLGnumZSITb0FU2iGmS5V8OTyNsr6Y6GjM83-JYjaSYeJpKMbbT-aXtyF2HJreGfZxP36Vnu9GKOwE4_HjulHNlFGN_D_Z9PPTct2k3sH8yAAPYl0B4j9BVXjbp0U7PYp1sp-Q7DyGq7aYlHWlimpb-kaH1x3sW4kQVbb1tofGkyDa8cd2jYiCWlZqYyWHYbsxYkhy6DDpXVhJ4-0vtsIRa_TLgbef2H3Xvq2cTrbc_FCVV4P6XYrmebqUOXeDZHZUhuQ44lFfJU8wIHRJZjFp6qRdb6yA8iYQIRAou9ag2pNOmKiVtriPxUHkYhEAJN83U5PQ2b0Sk0zLFCm0ItDnTJNZSe_LA1azPyIUjwSnDpwT0OIsoMtJgGrC8FzS92tmcTOsx5ricnkxGLgMvfy78yzY4hsr4sYIYcM0IkepwCPthYDyY1K3burM_XnxIRDOet9PRdVd7eI-q1CHfPq_7eHwWz9NQ25xmO78YKbaaoWJbNS9TavCwsMm-5BxfqtwCI7y8XcwddC1cAHverz0I4fueDkcSkWQ09gG9QPQquDK58WWPiw7sQcCUKf9N6uQO6xrL31ww6wq5XDP6x9iRL0wBPz7z6Go5Nd3GFsJEoMY6ygtgAr3gY7uOw0kwWU3WoBbmw8JUqIU7BkoU9pmYX6aA61C2GoMiOxVmPfkkr1u9gAq9GyVe3p05ImDuVe670YWRkhc5Gn9ALQLtmNV_VNBJVp4Pq0krn1vmDAn0Cr-z_2ueHzkLv5aTeph9_cswAYFC5JuZW5q_ra28_XNg67byFVBwNqvt2PeUIpDBW0RzJ4PzzvV6XUjt8EvFVVRpFJzfJ1OLL-mDlclZy0DB9-JVjlkmASi3HiSidWcmIOIwJ75MQNa2djaLMzLLJKtRfh6Ij9B1GWNStvtWEj9QervzDeQyDUkn-RAQtPK0Er66h3ELaXlvXJVQAZWbDmzoxiQClZw2L_0BeJyNngOQCe39614vrEO0G9NkUb7ezZpIGuhSUvZnBLLJ3OTVWoBA87GyVaNDcZ0_1bspa64XZCPxegjxH2X_Dj1J_Ls15ksZjA5Q"
+  }
+}

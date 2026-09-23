@@ -1,0 +1,44 @@
+{
+  "name": "arcopolis",
+  "version": "0.2.1",
+  "private": true,
+  "description": "Arcopolis Public API CLI and MCP server",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "arcopolis": "dist/bin.js"
+  },
+  "main": "dist/bin.js",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "npm-shrinkwrap.json"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
+    "test": "vitest run",
+    "smoke:mcp": "node --import tsx test/smoke-mcp.ts",
+    "check:openapi": "node scripts/snapshot-openapi.mjs --check",
+    "check:pack": "node scripts/pack-check.mjs",
+    "smoke:tarball": "node scripts/smoke-tarball.mjs",
+    "inspect": "npx @modelcontextprotocol/inspector node dist/bin.js mcp"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^22.19.17",
+    "eslint": "^9.39.4",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.59.0",
+    "vitest": "^4.1.5"
+  }
+}
