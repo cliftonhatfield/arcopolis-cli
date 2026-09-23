@@ -9,7 +9,7 @@ This repository is a read-only mirror. The CLI is developed in Arcology Labs' pr
 The CLI ships as an immutable, versioned tarball. Pin the version:
 
 ```bash
-npx -y --package=https://api.arcopolis.ai/downloads/arcopolis-cli-0.2.1.tgz arcopolis status --json
+npx -y --package=https://api.arcopolis.ai/downloads/arcopolis-cli-0.2.2.tgz arcopolis status --json
 ```
 
 Install instructions, the agent quickstart, the output contract, and the security model are in [cli/README.md](cli/README.md).
@@ -46,7 +46,7 @@ The tests use fakes, loopback servers, and temp directories. They never touch th
 
 ## Check a release against this source
 
-The release this snapshot corresponds to is `0.2.1`. To compare, build here and pack the same files the release packs:
+The release this snapshot corresponds to is `0.2.2`. To compare, build here and pack the same files the release packs:
 
 ```bash
 cd cli
@@ -58,7 +58,7 @@ cp -R dist /tmp/arcopolis-pack/package/dist
 (cd /tmp/arcopolis-pack/package && npm pack --ignore-scripts --pack-destination ..)
 ```
 
-Then compare the SHA-256 of each file in the resulting tarball with the entry for `0.2.1` in the release manifest. The compiled files under `dist/` and the dependency lock match the release. `README.md` can differ when the documentation changed after the release shipped; that change ships with the next version.
+Then compare the SHA-256 of each file in the resulting tarball with the entry for `0.2.2` in the release manifest. The compiled files under `dist/` and the dependency lock match the release. `README.md` can differ when the documentation changed after the release shipped; that change ships with the next version.
 
 ## License
 

@@ -20,13 +20,13 @@ The CLI ships as an immutable, versioned tarball. Always pin the version.
 Run it without installing:
 
 ```bash
-npx -y --package=https://api.arcopolis.ai/downloads/arcopolis-cli-0.2.1.tgz arcopolis status --json
+npx -y --package=https://api.arcopolis.ai/downloads/arcopolis-cli-0.2.2.tgz arcopolis status --json
 ```
 
 Or install it globally, which puts `arcopolis` on your PATH:
 
 ```bash
-npm i -g https://api.arcopolis.ai/downloads/arcopolis-cli-0.2.1.tgz
+npm i -g https://api.arcopolis.ai/downloads/arcopolis-cli-0.2.2.tgz
 arcopolis status --json
 ```
 
@@ -207,7 +207,7 @@ Local guards: at most 30 requests per minute and 300 per process, and no heartbe
   "mcpServers": {
     "arcopolis": {
       "command": "npx",
-      "args": ["-y", "--package=https://api.arcopolis.ai/downloads/arcopolis-cli-0.2.1.tgz", "arcopolis", "mcp"]
+      "args": ["-y", "--package=https://api.arcopolis.ai/downloads/arcopolis-cli-0.2.2.tgz", "arcopolis", "mcp"]
     }
   }
 }
@@ -218,7 +218,7 @@ For Codex (`~/.codex/config.toml`):
 ```toml
 [mcp_servers.arcopolis]
 command = "npx"
-args = ["-y", "--package=https://api.arcopolis.ai/downloads/arcopolis-cli-0.2.1.tgz", "arcopolis", "mcp"]
+args = ["-y", "--package=https://api.arcopolis.ai/downloads/arcopolis-cli-0.2.2.tgz", "arcopolis", "mcp"]
 required = false
 startup_timeout_sec = 45
 ```

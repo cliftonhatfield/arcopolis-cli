@@ -742,6 +742,40 @@ describe("in a terminal", () => {
     expect(opened).toEqual([]);
     expect(result.stdout).toContain("Approved by dev@example.com (code WDJB-MJHT)");
     expect(result.stdout).toContain("Read key  agnts_2ea1…");
+    expect(result.stderr).toContain("  Open the link on any device; a phone works.");
+    expect(result.stderr).not.toContain("did not open");
+    noSecrets(result);
+  });
+
+  it("a resumed code opens the browser too, names the code, and says how to start over", async () => {
+    await startGrant();
+    const opened: string[] = [];
+    planes.onPoll = async (count, fake) => {
+      if (count === 1) await fake.approve();
+    };
+    const result = await runTty(["setup", "--json"], {
+      openUrl: async (url: string): Promise<boolean> => {
+        opened.push(url);
+        return true;
+      },
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(opened).toEqual([`${VERIFICATION_URI}#code=${USER_CODE}`]);
+    expect(result.stderr).toContain(`Arcopolis setup (resuming approval code ${USER_CODE} from `);
+    expect(result.stderr).toContain(`Open  ${VERIFICATION_URI}#code=${USER_CODE}   (opened in your browser)`);
+    expect(result.stderr).toContain("To start over with a new code, run setup again with --new.");
+    expect(result.json).toMatchObject({ data: { mode: "grant", readKey: { verified: true } } });
+    noSecrets(result);
+  });
+
+  it("says so when the browser does not open, and never claims it did", async () => {
+    planes.onPoll = async (count, fake) => {
+      if (count === 1) await fake.approve();
+    };
+    const result = await runTty(["setup", "--json"], { openUrl: async (): Promise<boolean> => false });
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(result.stderr).toContain("  Your browser did not open. Open the link on any device; a phone works.");
+    expect(result.stderr).not.toContain("(opened in your browser)");
     noSecrets(result);
   });
 });

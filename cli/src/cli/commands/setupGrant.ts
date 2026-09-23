@@ -313,17 +313,23 @@ function describeRequest(request: GrantRequest): string {
 async function printBanner(ctx: CommandContext, pending: PendingGrant, input: GrantSetupInput, resumed: boolean): Promise<void> {
   const out = (line: string): void => ctx.io.stderr.write(`${line}\n`);
   let opened = false;
-  if (!resumed && !input.noBrowser && !ctx.mode.demo && !ctx.mode.mcp) {
-    const open = ctx.runtime?.openUrl ?? ((url: string): Promise<boolean> => openInBrowser(url, ctx.runtime?.platform));
+  // A resumed code opens too: the person at this terminal may never have seen
+  // the page (an agent or a --no-browser run started it).
+  if (!input.noBrowser && !ctx.mode.demo && !ctx.mode.mcp) {
+    const open = ctx.runtime?.openUrl ?? ((url: string): Promise<boolean> => openInBrowser(url, ctx.runtime?.platform, ctx.env));
     opened = await open(pending.verificationUriComplete).catch(() => false);
   }
-  out(resumed ? "Arcopolis setup (resuming the pending approval)" : "Arcopolis setup");
+  out(resumed ? `Arcopolis setup (resuming approval code ${pending.userCode} from ${localTime(pending.createdAt)})` : "Arcopolis setup");
   out(`  Plan: ${describeRequest(pending.request)}`);
   const terms = pending.terms.map((term) => `the ${term.name} (${term.version})`).join(" and ");
   out(`  Nothing is created until you approve. You will be asked to accept ${terms}.`);
   out("");
   out(`  Open  ${pending.verificationUriComplete}${opened ? "   (opened in your browser)" : ""}`);
   out(`  Code  ${pending.userCode}   expires ${localTime(pending.expiresAt)}`);
+  if (!opened) {
+    out(`  ${input.noBrowser ? "" : "Your browser did not open. "}Open the link on any device; a phone works.`);
+  }
+  if (resumed) out("  To start over with a new code, run setup again with --new.");
   out("");
   ctx.io.stderr.write("Waiting for approval...");
 }

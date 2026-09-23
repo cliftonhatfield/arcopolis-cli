@@ -7,6 +7,7 @@
  */
 import { spawn } from "node:child_process";
 import { PORTAL_ORIGIN } from "../../core/bases.js";
+import type { Env } from "../../core/credentials.js";
 import { defineCommand, flagBoolean, objectSchema, type CommandSpec, type DocumentView } from "../spec.js";
 
 /** Portal page for a new read key (app + key, Developer/API Terms). */
@@ -22,23 +23,49 @@ export function portalLinks(purpose: "read" | "agent"): { url: string; docs: str
   return purpose === "agent" ? { url: PORTAL_AGENT_URL, docs: DOCS_AGENT_URL } : { url: PORTAL_READ_URL, docs: DOCS_READ_URL };
 }
 
+/** How long to wait for the opener's exit status before assuming it worked. */
+const OPENER_WAIT_MS = 1_500;
+
+/**
+ * Whether a browser opened here would be in front of the person. False over
+ * SSH (it would open on the remote machine) and on Linux or BSD with no
+ * display; WSL is allowed because its opener reaches the Windows browser.
+ */
+export function canOpenBrowser(platform: NodeJS.Platform, env: Env): boolean {
+  if (env.SSH_CONNECTION || env.SSH_CLIENT || env.SSH_TTY) return false;
+  if (platform === "darwin" || platform === "win32") return true;
+  return Boolean(env.DISPLAY || env.WAYLAND_DISPLAY || env.WSL_DISTRO_NAME);
+}
+
 /**
  * Opens a URL in the default browser without a shell (`open`, `xdg-open`,
- * or `explorer.exe`). Resolves false when no opener could be started.
+ * or `explorer.exe`). Resolves true only when the opener exits 0 (or is
+ * still running after a short wait), and false when there is nowhere to
+ * open it or the opener fails, so callers never claim a browser opened when
+ * it did not. `explorer.exe` exits 1 even on success, so on Windows a
+ * started opener counts.
  */
-export function openInBrowser(url: string, platform: NodeJS.Platform = process.platform): Promise<boolean> {
+export function openInBrowser(url: string, platform: NodeJS.Platform = process.platform, env: Env = process.env): Promise<boolean> {
+  if (!canOpenBrowser(platform, env)) return Promise.resolve(false);
   const [command, args] =
     platform === "darwin" ? ["open", [url]] : platform === "win32" ? ["explorer.exe", [url]] : ["xdg-open", [url]];
   return new Promise<boolean>((resolve) => {
+    let timer: NodeJS.Timeout | undefined;
+    const finish = (value: boolean): void => {
+      if (timer) clearTimeout(timer);
+      resolve(value);
+    };
     try {
       const child = spawn(command, args as string[], { stdio: "ignore", detached: true, shell: false, windowsHide: true });
-      child.once("error", () => resolve(false));
+      child.once("error", () => finish(false));
       child.once("spawn", () => {
         child.unref();
-        resolve(true);
+        if (platform === "win32") finish(true);
+        else timer = setTimeout(() => finish(true), OPENER_WAIT_MS);
       });
+      child.once("exit", (code) => finish(platform === "win32" || code === 0));
     } catch {
-      resolve(false);
+      finish(false);
     }
   });
 }
@@ -100,7 +127,7 @@ export const commands: CommandSpec[] = [
         if (!ctx.mode.interactive || ctx.mode.demo || ctx.mode.mcp) {
           ctx.warnings.add("OPEN_SKIPPED", "Not opening a browser in a non-interactive session; give the URL to the human.");
         } else {
-          opened = await openInBrowser(links.url);
+          opened = await openInBrowser(links.url, process.platform, ctx.env);
           if (!opened) ctx.warnings.add("OPEN_FAILED", "Could not start a browser; open the URL yourself.");
         }
       }
