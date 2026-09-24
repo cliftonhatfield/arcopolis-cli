@@ -118,7 +118,7 @@ describe("setup (non-interactive guided fallback)", () => {
         portalUrl: "https://developers.arcologylabs.com/start/read",
         requested: { app: "my-project", readKey: { tier: 1 }, visitor: null },
         environment: [{ name: "ARCOPOLIS_API_KEY", secret: true }],
-        termsTheHumanWillSee: [{ name: "Developer/API Terms", version: "2026-07-20" }],
+        termsTheHumanWillSee: [{ name: "Developer/API Terms", version: "2026-09-23" }],
       },
       effects: { network: ["control"], requests: 2, writes: [], spends: {}, secretsWritten: [] },
       next: [{ command: "arcopolis status --json", humanDecision: false }],
@@ -140,7 +140,7 @@ describe("setup (non-interactive guided fallback)", () => {
         links: { read: "https://developers.arcologylabs.com/start/read", agent: "https://developers.arcologylabs.com/start/agent" },
         requested: { visitor: { world: "world_7", slug: "my-project" } },
         environment: [{ name: "ARCOPOLIS_API_KEY" }, { name: "ARCOPOLIS_VISITOR_API_KEY", secret: true }, { name: "ARCOPOLIS_VISITOR_AGENT_ID", secret: false }],
-        termsTheHumanWillSee: [{ version: "2026-07-20" }, { version: "2026-09-16" }],
+        termsTheHumanWillSee: [{ version: "2026-09-23" }, { version: "2026-09-16" }],
       },
     });
     expect((result.json?.humanAction as { tellTheHuman: string }).tellTheHuman).toContain("ARCOPOLIS_VISITOR_AGENT_ID");
@@ -286,7 +286,7 @@ describe("setup (TTY guided import)", () => {
     const result = await runTty(["setup", "--json"], [fakeKey("c")], { fetchImpl: fake.fetchImpl });
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toContain("https://developers.arcologylabs.com/start/read");
-    expect(result.stderr).toContain("Developer/API Terms (2026-07-20)");
+    expect(result.stderr).toContain("Developer/API Terms (2026-09-23)");
     expect(result.stderr).not.toContain(fakeKey("c"));
     expect(fake.calls.map((call) => call.url)).toEqual([SIGNUP_URL, GRANTS_URL, V1_URL]);
     expect(result.json).toMatchObject({

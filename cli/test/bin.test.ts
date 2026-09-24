@@ -251,6 +251,17 @@ describe("context and transport wiring", () => {
     expect(result.stdout).not.toContain("curl evil");
   });
 
+  it("version --check suggests the pinned npm install for a newer version", async () => {
+    const fetchImpl = async (): Promise<Response> =>
+      new Response(JSON.stringify({ latest: "9.9.9" }), { status: 200, headers: { "content-type": "application/json" } });
+    const result = await run(["version", "--check"], { fetchImpl });
+    expect(result.json).toMatchObject({ ok: true, data: { latest: "9.9.9", updateAvailable: true } });
+    const next = (result.json?.next ?? []) as Array<{ command: string; why: string; humanDecision: boolean }>;
+    expect(next).toHaveLength(1);
+    expect(next[0]).toMatchObject({ command: "npm i -g arcopolis@9.9.9", humanDecision: true });
+    expect(next[0]?.why).toContain("/downloads/arcopolis-cli-9.9.9.tgz");
+  });
+
   it("version --check in demo mode reads the fixture manifest", async () => {
     const result = await run(["version", "--check", "--demo"]);
     expect(result.json).toMatchObject({ data: { latest: expect.any(String), updateAvailable: false } });

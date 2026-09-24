@@ -143,7 +143,7 @@ export class FakePlanes {
       readKey,
       visitor,
       terms: {
-        developer: { version: "2026-07-20", url: "https://developers.arcologylabs.com/developer-api-terms.html" },
+        developer: { version: "2026-09-23", url: "https://developers.arcologylabs.com/developer-api-terms.html" },
         visitorCorpus:
           options.visitorCorpus !== undefined
             ? options.visitorCorpus
@@ -172,7 +172,7 @@ export class FakePlanes {
       appId: (payload.app as Json).id,
       readKey: readKey ? { id: readKey.id, action: readKey.action } : null,
       visitor: visitor ? { agentId: visitor.agentId, keyId: visitor.keyId, action: visitor.action } : null,
-      developerTermsVersion: "2026-07-20",
+      developerTermsVersion: "2026-09-23",
       visitorTermsVersion: visitor && visitor.action === "registered" ? "2026-09-16" : null,
     };
   }

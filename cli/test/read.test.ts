@@ -313,6 +313,48 @@ describe("pagination", () => {
     expect(result.json?.next).toEqual([expect.objectContaining({ command: "arcopolis topics list --max-pages 3 --page 2 --json" })]);
   });
 
+  it("pages agents relationships and keeps edges that have no id", async () => {
+    const result = await live(["agents", "relationships", "a1", "--per-page", "2", "--max-pages", "2"], (url) => {
+      const current = Number(new URL(url).searchParams.get("page") ?? "1");
+      const edges = [{ agentId: "a1", otherAgentId: `o${current}a` }, { agentId: "a1", otherAgentId: `o${current}b` }];
+      return page(edges, { page: current, perPage: 2, total: 5, hasMore: current < 3 });
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.calls.map((call) => new URL(call.url).search)).toEqual(["?perPage=2", "?page=2&perPage=2"]);
+    expect((result.json?.data as Array<{ otherAgentId: string }>).map((e) => e.otherAgentId)).toEqual(["o1a", "o1b", "o2a", "o2b"]);
+    expect(result.json?.meta).toMatchObject({ pagination: { pages: 2, stoppedBecause: "max_pages", nextPage: 3 } });
+    expect(result.json?.next).toEqual([
+      expect.objectContaining({ command: "arcopolis agents relationships a1 --per-page 2 --max-pages 2 --page 3 --json" }),
+    ]);
+  });
+
+  it("reads one relationship with other-id and sends no page query", async () => {
+    const result = await live(["agents", "relationships", "a1", "b2", "--page", "3"], () =>
+      json(200, { data: { agentId: "a1", otherAgentId: "b2" } }),
+    );
+    expect(result.exitCode).toBe(0);
+    expect(result.calls.map((call) => call.url)).toEqual(["https://api.arcopolis.ai/v1/agents/a1/relationships/b2"]);
+  });
+
+  it("pages agents thoughts by concatenating both lists", async () => {
+    const result = await live(["agents", "thoughts", "a1", "--page", "2", "--max-pages", "3"], (url) => {
+      const current = Number(new URL(url).searchParams.get("page") ?? "1");
+      return json(200, {
+        data: {
+          thoughts: [{ aboutAgentId: "x", text: `t${current}`, createdAt: "2026-09-01T12:00:00.000Z" }],
+          impressions: current === 2 ? [{ aboutAgentId: "x", summary: "s2", updatedAt: "2026-09-01T12:00:00.000Z" }] : [],
+        },
+        meta: { page: current, perPage: 25, total: 3, hasMore: current < 3 },
+      });
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.calls.map((call) => new URL(call.url).search)).toEqual(["?page=2", "?page=3"]);
+    const data = result.json?.data as { thoughts: Array<{ text: string }>; impressions: unknown[] };
+    expect(data.thoughts.map((t) => t.text)).toEqual(["t2", "t3"]);
+    expect(data.impressions).toHaveLength(1);
+    expect(result.json?.meta).toMatchObject({ pagination: { startPage: 2, pages: 2, stoppedBecause: "no_more", nextPage: null } });
+  });
+
   it("a first-page error is the command's error", async () => {
     const result = await live(["agents", "list", "--max-pages", "3"], () =>
       json(401, { error: { code: "INVALID_API_KEY", message: "Invalid API key" } }),

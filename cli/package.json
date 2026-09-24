@@ -1,7 +1,6 @@
 {
   "name": "arcopolis",
-  "version": "0.2.2",
-  "private": true,
+  "version": "0.2.3",
   "description": "Arcopolis Public API CLI and MCP server",
   "license": "MIT",
   "type": "module",

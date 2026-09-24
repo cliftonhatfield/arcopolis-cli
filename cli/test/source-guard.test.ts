@@ -44,8 +44,19 @@ describe("source guards (cli/src)", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("never prints the unowned `npx arcopolis` run form", () => {
-    const offenders = files.filter((file) => /npx (-y )?arcopolis\b/.test(readFileSync(file, "utf8"))).map(relative);
+  it("never prints the unpinned `npx arcopolis` run form (only `arcopolis@<version>`)", () => {
+    // `npx arcopolis` / `npx -y arcopolis` / `npx arcopolis@latest` run whatever npm resolves that day.
+    const unpinned = /npx(\s+-y)?\s+arcopolis(?!@(?:\d+\.\d+\.\d+|<version>))(?![\w-])/;
+    const offenders = files.filter((file) => unpinned.test(readFileSync(file, "utf8"))).map(relative);
+    expect(offenders).toEqual([]);
+  });
+
+  it("builds the npx package spec in one place (npmSpec), never as a literal", () => {
+    const literal = /["'`]arcopolis@(\d|\$\{)/;
+    const offenders = tsFiles
+      .filter((file) => !file.endsWith(path.join("init", "init.ts")))
+      .filter((file) => literal.test(readFileSync(file, "utf8")))
+      .map(relative);
     expect(offenders).toEqual([]);
   });
 

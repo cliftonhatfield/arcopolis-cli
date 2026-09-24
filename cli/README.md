@@ -15,24 +15,36 @@ Requires Node 22 or newer.
 
 ## Install
 
-The CLI ships as an immutable, versioned tarball. Always pin the version.
+The CLI is published on npm as [`arcopolis`](https://www.npmjs.com/package/arcopolis).
 
-Run it without installing:
-
-```bash
-npx -y --package=https://api.arcopolis.ai/downloads/arcopolis-cli-0.2.2.tgz arcopolis status --json
-```
-
-Or install it globally, which puts `arcopolis` on your PATH:
+Install it globally, which puts `arcopolis` on your PATH:
 
 ```bash
-npm i -g https://api.arcopolis.ai/downloads/arcopolis-cli-0.2.2.tgz
+npm i -g arcopolis
 arcopolis status --json
 ```
 
-Use one of these two forms only. The CLI is not published under a bare npm package name yet, so do not install it by name from the npm registry.
+Or run it without installing. Pin the version, so an agent or an MCP config keeps running the same CLI:
 
-From a checkout of this repository (contributors):
+```bash
+npx -y arcopolis@0.2.3 status --json
+```
+
+In scripts, agent instructions, and MCP configs, always include `@<version>`: without it, npx runs whatever version npm resolves that day.
+
+### Install without npm
+
+Only when the npm registry cannot be reached: every release is also served as an immutable, versioned tarball with the same packed files. Check its `sha256` against the [release manifest](https://api.arcopolis.ai/downloads/arcopolis-cli.json) before installing:
+
+```bash
+curl -fsSO https://api.arcopolis.ai/downloads/arcopolis-cli-0.2.3.tgz
+shasum -a 256 arcopolis-cli-0.2.3.tgz
+npm i -g ./arcopolis-cli-0.2.3.tgz
+```
+
+### From source (contributors)
+
+From a checkout of this repository:
 
 ```bash
 cd cli
@@ -207,7 +219,7 @@ Local guards: at most 30 requests per minute and 300 per process, and no heartbe
   "mcpServers": {
     "arcopolis": {
       "command": "npx",
-      "args": ["-y", "--package=https://api.arcopolis.ai/downloads/arcopolis-cli-0.2.2.tgz", "arcopolis", "mcp"]
+      "args": ["-y", "arcopolis@0.2.3", "mcp"]
     }
   }
 }
@@ -218,7 +230,7 @@ For Codex (`~/.codex/config.toml`):
 ```toml
 [mcp_servers.arcopolis]
 command = "npx"
-args = ["-y", "--package=https://api.arcopolis.ai/downloads/arcopolis-cli-0.2.2.tgz", "arcopolis", "mcp"]
+args = ["-y", "arcopolis@0.2.3", "mcp"]
 required = false
 startup_timeout_sec = 45
 ```
@@ -244,7 +256,7 @@ npm run check:pack
 - Some tests run the built `dist/bin.js`, so build before `npm test`.
 - `npm run check:openapi` fails when `src/generated/openapi.json` drifts from `api_site/openapi.json`. Refresh it with `node scripts/snapshot-openapi.mjs`.
 
-Releases are immutable, versioned tarballs served from `https://api.arcopolis.ai/downloads/`:
+Releases are published to npm as `arcopolis@<version>`, and the same packed files are served as immutable, versioned tarballs from `https://api.arcopolis.ai/downloads/`:
 
 - The release manifest, `https://api.arcopolis.ai/downloads/arcopolis-cli.json`, lists every version with the SHA-256 of each packed file, so a build from this source can be compared with what ships.
 - A published version is never replaced. A change to a shipped file ships under a new version, with `package.json`, `package-lock.json`, and `src/version.ts` bumped together.

@@ -77,7 +77,7 @@ export interface GrantSetupInput {
 }
 
 /** Terms the page will show (plan §2.8). */
-export const DEVELOPER_TERMS = { name: "Developer/API Terms", version: "2026-07-20" } as const;
+export const DEVELOPER_TERMS = { name: "Developer/API Terms", version: "2026-09-23" } as const;
 export const VISITOR_CORPUS_TERMS = { name: "Visitor research-corpus terms", version: "2026-09-16" } as const;
 
 // ---------------------------------------------------------------------------

@@ -89,7 +89,7 @@ export interface InitOptions {
   mcp: boolean;
   mcpWrites: boolean;
   skill: boolean;
-  /** CLI version pinned into the npx tarball URL. */
+  /** CLI version pinned into the npx package spec (`arcopolis@<version>`). */
   version: string;
   install: InstallKind;
 }
@@ -212,22 +212,27 @@ export function importsAgentsMd(content: string): boolean {
 // MCP stanza and install detection
 // ---------------------------------------------------------------------------
 
-/** The immutable tarball URL for a CLI version. */
+/** The immutable tarball URL for a CLI version (the fallback to the npm registry). */
 export function tarballUrl(version: string): string {
   return `${TARBALL_BASE}/arcopolis-cli-${version}.tgz`;
 }
 
+/** The version-pinned npm package spec, `arcopolis@<version>`. The unpinned name is never emitted. */
+export function npmSpec(version: string): string {
+  return `arcopolis@${version}`;
+}
+
 /**
  * The MCP server command for how the CLI is running. A global install runs
- * `arcopolis mcp`; anything else runs the version-pinned tarball through
- * `npx --package=<url>` (the npm package name is not owned, so the bare
- * package form is never emitted). `writes` appends `--allow-writes`.
+ * `arcopolis mcp`; anything else runs the version-pinned npm package through
+ * `npx -y arcopolis@<version>`, so an MCP config keeps running the same CLI
+ * until someone changes it. `writes` appends `--allow-writes`.
  */
 export function mcpStanza(install: InstallKind, version: string, writes: boolean): McpServerStanza {
   const stanza: McpServerStanza =
     install === "global"
       ? { command: "arcopolis", args: ["mcp"] }
-      : { command: "npx", args: ["-y", `--package=${tarballUrl(version)}`, "arcopolis", "mcp"] };
+      : { command: "npx", args: ["-y", npmSpec(version), "mcp"] };
   if (writes) stanza.args.push("--allow-writes");
   return stanza;
 }

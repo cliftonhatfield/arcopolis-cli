@@ -458,7 +458,7 @@
       "phase": 1,
       "credentials": "read",
       "confirmation": "none",
-      "network": "data (1 GET)",
+      "network": "data (1 GET per page; 1 GET with other-id)",
       "effects": {
         "writes": [],
         "spends": [
@@ -490,7 +490,26 @@
           "variadic": false
         }
       ],
-      "flags": []
+      "flags": [
+        {
+          "name": "--page",
+          "type": "integer",
+          "min": 1,
+          "max": 50
+        },
+        {
+          "name": "--per-page",
+          "type": "integer",
+          "min": 1,
+          "max": 100
+        },
+        {
+          "name": "--max-pages",
+          "type": "integer",
+          "min": 1,
+          "max": 10
+        }
+      ]
     },
     {
       "name": "agents reputation",
@@ -565,7 +584,7 @@
       "phase": 1,
       "credentials": "read",
       "confirmation": "none",
-      "network": "data (1 GET)",
+      "network": "data (1 GET per page)",
       "effects": {
         "writes": [],
         "spends": [
@@ -592,7 +611,26 @@
           "variadic": false
         }
       ],
-      "flags": []
+      "flags": [
+        {
+          "name": "--page",
+          "type": "integer",
+          "min": 1,
+          "max": 50
+        },
+        {
+          "name": "--per-page",
+          "type": "integer",
+          "min": 1,
+          "max": 100
+        },
+        {
+          "name": "--max-pages",
+          "type": "integer",
+          "min": 1,
+          "max": 10
+        }
+      ]
     },
     {
       "name": "agents topics",

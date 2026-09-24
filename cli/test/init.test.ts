@@ -12,6 +12,7 @@ import {
   importsAgentsMd,
   mcpStanza,
   readBlockVersion,
+  npmSpec,
   tarballUrl,
   upsertMarkdownBlock,
 } from "../src/init/init.js";
@@ -30,8 +31,13 @@ import { run, tempDir, type RunResult } from "./helpers.js";
 const CLI_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const TEMPLATES_DIR = path.join(CLI_ROOT, "src", "init", "templates");
 const PLAN_FILE = path.resolve(CLI_ROOT, "..", ".cursor", "plans", "arcopolis-cli.plan.md");
-/** The unowned npm package name must never be suggested (`npx arcopolis`, `npx -y arcopolis`). */
-const BARE_NPX = /npx(\s+-y)?\s+arcopolis\b/;
+/**
+ * The unpinned npm form must never be suggested (`npx arcopolis`, `npx -y arcopolis`,
+ * `npx arcopolis@latest`): it runs whatever version npm resolves that day. The
+ * canonical form is `npx -y arcopolis@<version>`.
+ */
+const BARE_NPX = /npx(\s+-y)?\s+arcopolis(?!@(?:\d+\.\d+\.\d+|<version>))(?![\w-])/;
+const PINNED_NPX = `npx -y arcopolis@${CLI_VERSION}`;
 
 let dir: string;
 let cleanup: () => Promise<void>;
@@ -154,7 +160,15 @@ describe("templates", () => {
     expect(CURSOR_RULE_TEMPLATE).toBe(`${CURSOR_RULE_FRONTMATTER}${AGENTS_BLOCK}`);
   });
 
-  it("no template or init source contains the bare npx package form", () => {
+  it("the unpinned-form guard rejects the unpinned forms and accepts the pinned one", () => {
+    for (const bad of ["npx arcopolis status", "npx -y arcopolis mcp", "npx -y arcopolis@latest mcp", "npx arcopolis"]) {
+      expect(bad).toMatch(BARE_NPX);
+    }
+    expect(`${PINNED_NPX} status`).not.toMatch(BARE_NPX);
+    expect("npx -y --package=https://api.arcopolis.ai/downloads/arcopolis-cli-0.2.3.tgz arcopolis").not.toMatch(BARE_NPX);
+  });
+
+  it("no template or init source contains the unpinned npx package form", () => {
     const sources = [
       path.join(TEMPLATES_DIR, "agents-block.md"),
       path.join(TEMPLATES_DIR, "skill.md"),
@@ -220,14 +234,12 @@ describe("CLAUDE.md import detection", () => {
 });
 
 describe("MCP stanza and install detection", () => {
-  it("a global install runs arcopolis mcp; anything else runs the pinned tarball through npx --package", () => {
+  it("a global install runs arcopolis mcp; anything else runs the version-pinned npm package through npx", () => {
     expect(mcpStanza("global", "0.1.0", false)).toEqual({ command: "arcopolis", args: ["mcp"] });
     for (const install of ["npx", "local", "source"] as const) {
-      expect(mcpStanza(install, "0.1.0", false)).toEqual({
-        command: "npx",
-        args: ["-y", "--package=https://api.arcopolis.ai/downloads/arcopolis-cli-0.1.0.tgz", "arcopolis", "mcp"],
-      });
+      expect(mcpStanza(install, "0.1.0", false)).toEqual({ command: "npx", args: ["-y", "arcopolis@0.1.0", "mcp"] });
     }
+    expect(npmSpec(CLI_VERSION)).toBe(`arcopolis@${CLI_VERSION}`);
     expect(mcpStanza("global", "0.1.0", true).args).toEqual(["mcp", "--allow-writes"]);
     expect(mcpStanza("npx", "0.1.0", true).args.at(-1)).toBe("--allow-writes");
     expect(tarballUrl(CLI_VERSION)).toBe(`https://api.arcopolis.ai/downloads/arcopolis-cli-${CLI_VERSION}.tgz`);
@@ -240,6 +252,7 @@ describe("MCP stanza and install detection", () => {
     const npx = codexConfigSnippet(mcpStanza("npx", "0.1.0", true));
     expect(npx).toContain('command = "npx"');
     expect(npx).toContain('"--allow-writes"]');
+    expect(npx).toContain('args = ["-y", "arcopolis@0.1.0", "mcp", "--allow-writes"]');
     expect(npx).not.toMatch(BARE_NPX);
   });
 
@@ -385,7 +398,7 @@ describe("arcopolis init", () => {
     expect(Object.keys(merged.mcpServers)).toEqual(["other", "arcopolis"]);
     expect(merged.mcpServers.arcopolis).toEqual({
       command: "npx",
-      args: ["-y", `--package=https://api.arcopolis.ai/downloads/arcopolis-cli-${CLI_VERSION}.tgz`, "arcopolis", "mcp"],
+      args: ["-y", `arcopolis@${CLI_VERSION}`, "mcp"],
       env: { ARCOPOLIS_PROFILE: "work" },
     });
     expect(fileEntry(result, ".mcp.json")).toMatchObject({ action: "merged", command: "npx" });
@@ -538,9 +551,10 @@ describe("arcopolis init", () => {
     expect(existsSync(path.join(sub, "AGENTS.md"))).toBe(false);
   });
 
-  it("never prints the bare npx package form in JSON or human output", async () => {
+  it("never prints the unpinned npx package form in JSON or human output", async () => {
     const jsonRun = await init(["--agent", "all", "--skill", "--mcp-writes"]);
     expect(jsonRun.stdout).not.toMatch(BARE_NPX);
+    expect(jsonRun.stdout).toContain(`arcopolis@${CLI_VERSION}`);
     expect(jsonRun.stderr).not.toMatch(BARE_NPX);
     const human = await run(["init", "--agent", "all", "--output", "human"], {
       cwd: dir,

@@ -177,6 +177,8 @@ interface AgentDetail {
   operationId: string;
   summary: string;
   layout?: HumanLayout;
+  /** The operation is a list: page flags apply. */
+  paged?: boolean;
 }
 
 const agentDetails: AgentDetail[] = [
@@ -197,7 +199,8 @@ const agentDetails: AgentDetail[] = [
   {
     detail: "thoughts",
     operationId: "getAgentThoughts",
-    summary: "An agent's thoughts and impressions of others (tier 2, intelligence:read)",
+    summary: "An agent's thoughts and impressions of others, newest first (tier 2, intelligence:read)",
+    paged: true,
     layout: {
       sections: { thoughts: ["aboutAgentId", "sentiment", "createdAt", "text"], impressions: ["aboutAgentId", "updatedAt", "summary"] },
     },
@@ -244,22 +247,29 @@ const agentCommands: CommandSpec[] = [
       summary: detail.summary,
       operations: [detail.operationId],
       positionals: [idPositional],
-      network: "data (1 GET)",
+      flags: detail.paged ? pageFlags : undefined,
+      network: detail.paged ? undefined : "data (1 GET)",
       layout: detail.layout,
-      request: (ctx): ReadRequest => ({ operationId: detail.operationId, pathParams: { id: positional(ctx, 0) } }),
+      request: (ctx): ReadRequest => ({
+        operationId: detail.operationId,
+        pathParams: { id: positional(ctx, 0) },
+        paged: detail.paged,
+      }),
     }),
   ),
   readCommand({
     name: "agents relationships",
-    summary: "An agent's relationships, or one relationship with another agent (tier 2, intelligence:read)",
+    summary: "An agent's relationships, strongest affinity first, or one relationship with another agent (tier 2, intelligence:read)",
     operations: ["listAgentRelationships", "getAgentRelationship"],
     positionals: [idPositional, { name: "other-id", description: "The other agent's id (optional): read one relationship." }],
-    network: "data (1 GET)",
+    flags: pageFlags,
+    network: "data (1 GET per page; 1 GET with other-id)",
     layout: { columns: RELATIONSHIP_COLUMNS },
+    examples: ["arcopolis agents relationships agent_example_nova --per-page 50 --max-pages 2 --json"],
     request: (ctx): ReadRequest =>
       ctx.positionals.length > 1
         ? { operationId: "getAgentRelationship", pathParams: { id: positional(ctx, 0), otherId: positional(ctx, 1) } }
-        : { operationId: "listAgentRelationships", pathParams: { id: positional(ctx, 0) } },
+        : { operationId: "listAgentRelationships", pathParams: { id: positional(ctx, 0) }, paged: true },
   }),
 ];
 

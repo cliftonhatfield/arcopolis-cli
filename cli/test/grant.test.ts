@@ -174,7 +174,7 @@ describe("first run without a TTY", () => {
       userCode: USER_CODE,
       expiresInSeconds: 600,
       requested: { app: "my-project", readKey: { tier: 1 }, visitor: null },
-      termsTheHumanWillSee: [{ name: "Developer/API Terms", version: "2026-07-20" }],
+      termsTheHumanWillSee: [{ name: "Developer/API Terms", version: "2026-09-23" }],
       tellTheHuman: `Open ${VERIFICATION_URI}#code=${USER_CODE} on any device, sign in with Google, check the code is ${USER_CODE}, and approve. Then tell me.`,
     });
 
@@ -213,7 +213,7 @@ describe("first run without a TTY", () => {
     expect((planes.requests[1]?.body as Json).intent).toMatchObject({ visitor: { slug: "my-project", worldId: "world_7" } });
     expect(result.json?.humanAction).toMatchObject({
       requested: { visitor: { slug: "my-project", worldId: "world_7" } },
-      termsTheHumanWillSee: [{ version: "2026-07-20" }, { name: "Visitor research-corpus terms", version: "2026-09-16" }],
+      termsTheHumanWillSee: [{ version: "2026-09-23" }, { name: "Visitor research-corpus terms", version: "2026-09-16" }],
     });
   });
 
@@ -255,7 +255,7 @@ describe("the re-run resumes the same code", () => {
         app: { id: "app_1", name: "my-project", created: true },
         readKey: { id: "key_read_1", keyPrefix: "agnts_2ea1…", tier: 1, action: "created", verified: true },
         visitor: null,
-        terms: { developer: "2026-07-20", visitorCorpus: null },
+        terms: { developer: "2026-09-23", visitorCorpus: null },
         files: [],
       },
       effects: { network: ["control", "data"], requests: 5, writes: ["credential_store"], spends: { rateLimit: 1 }, secretsWritten: ["credential_store:readKey"] },
@@ -271,7 +271,7 @@ describe("the re-run resumes the same code", () => {
       account: { uid: "uid_dev", email: "dev@example.com" },
       app: { id: "app_1", name: "my-project" },
       readKey: { id: "key_read_1", key: READ_KEY, tier: 1, origin: planes.origin, lastVerifiedAt: expect.any(String) },
-      terms: { developer: "2026-07-20", visitorCorpus: null, acceptedVia: "portal_approval" },
+      terms: { developer: "2026-09-23", visitorCorpus: null, acceptedVia: "portal_approval" },
     });
     noSecrets(result);
     // Resolved and verified: the next run exits 0 with no request.
@@ -519,14 +519,14 @@ describe("the approved payload", () => {
     expect(result.json).toMatchObject({
       data: {
         visitor: { agentId: "agent_visitor_1", handle: "visitor-my-project", keyPrefix: "agnts_4a79…", driveDailyBudget: 25, action: "registered", verified: true },
-        terms: { developer: "2026-07-20", visitorCorpus: "2026-09-16" },
+        terms: { developer: "2026-09-23", visitorCorpus: "2026-09-16" },
       },
       effects: { secretsWritten: ["credential_store:readKey", "credential_store:visitorKey"] },
       warnings: expect.arrayContaining([{ code: "GRANT_WARNING", message: "A note from the approval page." }]),
     });
     const saved = (await readJsonFile(CREDENTIALS_FILE())) as { profiles: { default: { visitor: Json; terms: Json } } };
     expect(saved.profiles.default.visitor).toMatchObject({ agentId: "agent_visitor_1", keyId: "key_drive_1", key: VISITOR_KEY, driveDailyBudget: 25, origin: planes.origin });
-    expect(saved.profiles.default.terms).toEqual({ developer: "2026-07-20", visitorCorpus: "2026-09-16", acceptedVia: "portal_approval" });
+    expect(saved.profiles.default.terms).toEqual({ developer: "2026-09-23", visitorCorpus: "2026-09-16", acceptedVia: "portal_approval" });
     noSecrets(result);
   });
 
@@ -720,7 +720,7 @@ describe("in a terminal", () => {
     expect(result.stderr).toContain("Plan: app \"my-project\" · 1 read key (tier 1)");
     expect(result.stderr).toContain(`Open  ${VERIFICATION_URI}#code=${USER_CODE}   (opened in your browser)`);
     expect(result.stderr).toContain(`Code  ${USER_CODE}`);
-    expect(result.stderr).toContain("the Developer/API Terms (2026-07-20)");
+    expect(result.stderr).toContain("the Developer/API Terms (2026-09-23)");
     expect(result.stderr).toContain("Waiting for approval... approved.");
     expect(result.json).toMatchObject({ data: { mode: "grant", readKey: { verified: true } } });
     expect(planes.trace).toEqual([SIGNUP, START, POLL, POLL, ACK, "GET /v1"]);

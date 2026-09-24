@@ -19,7 +19,7 @@ import {
   type SuccessDocument,
 } from "../core/output.js";
 import { createRedactingWriter, redact, serializeRedacted, type TextSink } from "../core/redact.js";
-import { currentModuleFile, detectInstall, tarballUrl, type InstallKind } from "../init/init.js";
+import { currentModuleFile, detectInstall, npmSpec, type InstallKind } from "../init/init.js";
 import { CLI_VERSION } from "../version.js";
 import { createContext, mcpDiagnostic } from "./context.js";
 import { parseCommandArgs, preScan, renderCommandHelp, renderOverviewHelp, stripCommandWords } from "./parse.js";
@@ -63,11 +63,11 @@ export interface CliRuntime {
 /**
  * The prefix a human or agent must type to run this CLI again, for `next[]`.
  * An `npx` run is not on PATH, so a bare `arcopolis ...` step would fail with
- * "command not found"; repeat the pinned tarball form instead.
+ * "command not found"; repeat the version-pinned npm form instead.
  */
 export function commandPrefix(kind: InstallKind, version: string): string {
-  // Never the bare registry name: `arcopolis` on npm is not this CLI, so a local install also gets the pinned form.
-  if (kind === "npx" || kind === "local") return `npx -y --package=${tarballUrl(version)} arcopolis`;
+  // Always pinned to this version, so a repeated step runs the same CLI (a local install is not on PATH either).
+  if (kind === "npx" || kind === "local") return `npx -y ${npmSpec(version)}`;
   return "arcopolis";
 }
 

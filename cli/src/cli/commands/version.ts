@@ -3,6 +3,7 @@
  * release manifest once (no key, no telemetry, never automatic).
  */
 import { CliError } from "../../core/errors.js";
+import { npmSpec } from "../../init/init.js";
 import { defineCommand, flagBoolean, objectSchema, type CommandSpec, type DocumentView } from "../spec.js";
 
 /** Path of the static release manifest on the API host. */
@@ -82,8 +83,8 @@ export const commands: CommandSpec[] = [
         next: data.updateAvailable
           ? [
               {
-                command: `npm i -g ${client.base.url}/downloads/arcopolis-cli-${latest}.tgz`,
-                why: "Install the newer version (ask the human first)",
+                command: `npm i -g ${npmSpec(latest)}`,
+                why: `Install the newer version from npm (ask the human first). Without npm: npm i -g ${client.base.url}/downloads/arcopolis-cli-${latest}.tgz`,
                 humanDecision: true,
               },
             ]

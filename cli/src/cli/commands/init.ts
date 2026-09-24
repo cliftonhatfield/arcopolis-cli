@@ -106,7 +106,7 @@ export const commands: CommandSpec[] = [
       "MCP JSON files are merged (other servers are kept), and CLAUDE.md is left unchanged when it imports @AGENTS.md. " +
       "--agent auto detects CLAUDE.md or .claude/, .cursor/, and AGENTS.md (nothing found: AGENTS.md). " +
       "The Codex user config is never edited; its TOML is returned in data.codexConfigSnippet. " +
-      "The MCP stanza runs `arcopolis mcp` from a global install, otherwise the version-pinned tarball through npx --package=<url>. " +
+      "The MCP stanza runs `arcopolis mcp` from a global install, otherwise the version-pinned npm package through npx -y arcopolis@<version>. " +
       "--dry-run prints the plan without writing; a non-TTY run applies directly (the edits are reversible and hold no secrets).",
     phase: 1,
     credentials: "none",

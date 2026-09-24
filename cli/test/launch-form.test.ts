@@ -3,7 +3,8 @@ import { commandPrefix, rewriteNextSteps } from "../src/cli/main.js";
 import { CLI_VERSION } from "../src/version.js";
 import { run } from "./helpers.js";
 
-const NPX = `npx -y --package=https://api.arcopolis.ai/downloads/arcopolis-cli-${CLI_VERSION}.tgz arcopolis`;
+/** The canonical run form: the npm package pinned to this exact version. */
+const NPX = `npx -y arcopolis@${CLI_VERSION}`;
 
 describe("next[] uses the form the CLI was launched with", () => {
   it("maps each install kind to a runnable prefix", () => {
@@ -11,6 +12,7 @@ describe("next[] uses the form the CLI was launched with", () => {
     expect(commandPrefix("local", CLI_VERSION)).toBe(NPX);
     expect(commandPrefix("global", CLI_VERSION)).toBe("arcopolis");
     expect(commandPrefix("source", CLI_VERSION)).toBe("arcopolis");
+    expect(commandPrefix("npx", "9.8.7")).toBe("npx -y arcopolis@9.8.7");
   });
 
   it("rewrites only arcopolis commands and never mutates the input", () => {
