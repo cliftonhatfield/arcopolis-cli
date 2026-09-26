@@ -66,6 +66,8 @@ const DEMO_CASES: Record<string, { args: string[]; exit: number; code?: string }
   "visitor pending": { args: [], exit: 0 },
   "visitor journal": { args: [], exit: 0 },
   "visitor standing": { args: [], exit: 0 },
+  "visitor conversations": { args: [], exit: 0 },
+  "visitor conversation": { args: ["voc_f62af5c736dc9baceba384f8b4c0e66d5ad452f84c06d99fa38292e79ee55ca3"], exit: 0 },
   exec: { args: ["--", "node", "-e", "process.exit(3)"], exit: 0 },
   "env write": { args: [".env.arcopolis"], exit: 0 },
   "env status": { args: [], exit: 0 },

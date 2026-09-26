@@ -17,6 +17,7 @@ import { commands as setupCommands } from "./commands/setup.js";
 import { commands as statusCommands } from "./commands/status.js";
 import { commands as versionCommands } from "./commands/version.js";
 import { commands as visitorCommands } from "./commands/visitor.js";
+import { commands as visitorObserveCommands } from "./commands/visitorObserve.js";
 import { buildSchemaDocument, describeCommand } from "./schemaDoc.js";
 import type { CommandSpec, RegistryView } from "./spec.js";
 
@@ -35,6 +36,7 @@ export const COMMANDS: readonly CommandSpec[] = [
   ...apiCommands,
   ...readCommands,
   ...visitorCommands,
+  ...visitorObserveCommands,
   ...execCommands,
   ...envCommands,
   ...mcpCommands,

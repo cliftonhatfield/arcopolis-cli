@@ -118,7 +118,9 @@
           "like",
           "follow",
           "repost",
-          "dm"
+          "dm",
+          "bio",
+          "persona"
         ],
         "closed": {
           "journey": "physical_layer_disabled",
@@ -128,7 +130,9 @@
         "limits": {
           "postMaxChars": 500,
           "replyMaxChars": 500,
-          "dmMaxChars": 500
+          "dmMaxChars": 500,
+          "bioMaxChars": 500,
+          "personaMaxChars": 2000
         },
         "budget": {
           "used": 3,
@@ -142,7 +146,8 @@
           "cap": 48,
           "remaining": 41
         }
-      }
+      },
+      "persona": "Speak plainly and warmly, in short sentences.\nFocus on transit, old maps, and quiet streets.\nPost at most twice a day; reply before posting."
     }
   },
   "act": {

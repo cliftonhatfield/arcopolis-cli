@@ -20,6 +20,8 @@ export interface DemoFixtures {
   act: Record<string, Json>;
   control: { signup: Json; cliGrantsDisabled: Json };
   manifest: Json;
+  /** Observe transcripts by conversation id (`voc_` plus 64 hex, as the server issues them). */
+  observe: { transcripts: Record<string, Json> };
 }
 
 let cached: DemoFixtures | null = null;
@@ -161,7 +163,18 @@ const DATA_ROUTES: Route[] = [
   { method: "GET", pattern: new RegExp(`^/visitors/${ID}/standing$`), handler: operation("getVisitorStanding") },
   { method: "GET", pattern: new RegExp(`^/visitors/${ID}/observe$`), handler: operation("getVisitorObserve") },
   { method: "GET", pattern: new RegExp(`^/visitors/${ID}/observe/conversations$`), handler: operation("listVisitorObserveConversations") },
-  { method: "GET", pattern: new RegExp(`^/visitors/${ID}/observe/conversations/${ID}$`), handler: operation("getVisitorObserveConversation") },
+  {
+    method: "GET",
+    pattern: new RegExp(`^/visitors/${ID}/observe/conversations/${ID}$`),
+    handler: (match, _r, f) => {
+      const id = decodeURIComponent(match[2] ?? "");
+      if (!/^voc_[a-f0-9]{64}$/.test(id)) return apiError(400, "INVALID_OBSERVE_QUERY", "Correct the observation request or start a new view.");
+      const transcript = f.observe.transcripts[id];
+      return transcript
+        ? jsonResponse(200, clone(transcript))
+        : apiError(404, "OBSERVE_CONTENT_UNAVAILABLE", "This conversation is no longer available to your visitor.");
+    },
+  },
   { method: "GET", pattern: new RegExp(`^/visitors/${ID}/observe/events$`), handler: operation("listVisitorObserveEvents") },
   { method: "GET", pattern: new RegExp(`^/visitors/${ID}/observe/events/${ID}$`), handler: operation("getVisitorObserveEvent") },
   { method: "GET", pattern: new RegExp(`^/visitors/${ID}/observe/export$`), handler: operation("exportVisitorObserveEvents") },

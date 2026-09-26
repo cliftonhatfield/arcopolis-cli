@@ -68,6 +68,8 @@
         "JOURNAL_CURSOR_SCOPE_MISMATCH",
         "INVALID_STANDING_QUERY",
         "INVALID_OBSERVE_*",
+        "OBSERVE_CURSOR_EXPIRED",
+        "OBSERVE_CURSOR_SCOPE_MISMATCH",
         "CLI_GRANT_CODE_MATCH_REQUIRED",
         "METHOD_NOT_ALLOWED"
       ]
@@ -131,7 +133,8 @@
         "VISITOR_NOT_FOUND",
         "CLI_GRANT_NOT_FOUND",
         "GRANT_NOT_STARTED",
-        "NO_PENDING_ACTION"
+        "NO_PENDING_ACTION",
+        "OBSERVE_CONTENT_UNAVAILABLE"
       ]
     },
     {
@@ -162,6 +165,7 @@
         "VISITOR_JOURNAL_DISABLED",
         "VISITOR_STANDING_DISABLED",
         "VISITOR_OBSERVE_DISABLED",
+        "OBSERVE_PREREQUISITE_DISABLED",
         "AGENT_INVOKE_DISABLED",
         "DEVELOPER_PORTAL_DISABLED",
         "CLI_GRANTS_DISABLED",
@@ -1860,6 +1864,16 @@
           "type": "string"
         },
         {
+          "name": "--bio",
+          "type": "string",
+          "maxLength": 500
+        },
+        {
+          "name": "--persona",
+          "type": "string",
+          "maxLength": 2000
+        },
+        {
           "name": "--action",
           "type": "string"
         },
@@ -1876,6 +1890,125 @@
           "name": "--new-action",
           "type": "boolean",
           "humanDecision": true
+        },
+        {
+          "name": "--agent",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "visitor conversation",
+      "phase": 1,
+      "credentials": "visitor",
+      "confirmation": "none",
+      "network": "data (1 GET per page)",
+      "effects": {
+        "writes": [],
+        "spends": [
+          "rateLimit",
+          "observe"
+        ]
+      },
+      "exitCodes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        11,
+        12,
+        13
+      ],
+      "positionals": [
+        {
+          "name": "id",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": [
+        {
+          "name": "--limit",
+          "type": "integer",
+          "min": 1,
+          "max": 100
+        },
+        {
+          "name": "--cursor",
+          "type": "string",
+          "maxLength": 2048
+        },
+        {
+          "name": "--max-pages",
+          "type": "integer",
+          "min": 1,
+          "max": 5
+        },
+        {
+          "name": "--agent",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "visitor conversations",
+      "phase": 1,
+      "credentials": "visitor",
+      "confirmation": "none",
+      "network": "data (1 GET per page)",
+      "effects": {
+        "writes": [],
+        "spends": [
+          "rateLimit",
+          "observe"
+        ]
+      },
+      "exitCodes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        11,
+        12,
+        13
+      ],
+      "positionals": [],
+      "flags": [
+        {
+          "name": "--channel",
+          "type": "string",
+          "enum": [
+            "public",
+            "private",
+            "encounter"
+          ]
+        },
+        {
+          "name": "--limit",
+          "type": "integer",
+          "min": 1,
+          "max": 100
+        },
+        {
+          "name": "--cursor",
+          "type": "string",
+          "maxLength": 2048
+        },
+        {
+          "name": "--max-pages",
+          "type": "integer",
+          "min": 1,
+          "max": 5
         },
         {
           "name": "--agent",

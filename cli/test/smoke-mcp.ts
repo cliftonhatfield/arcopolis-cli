@@ -49,6 +49,7 @@ const PLAN_TOOLS: Record<string, [boolean, boolean, boolean, boolean]> = {
   arcopolis_visitor_preview: [true, false, true, false],
   arcopolis_visitor_journal: [true, false, false, true],
   arcopolis_visitor_standing: [true, false, false, true],
+  arcopolis_visitor_conversations: [true, false, false, true],
 };
 const PLAN_WRITE_TOOLS: Record<string, [boolean, boolean, boolean, boolean]> = {
   arcopolis_visitor_heartbeat: [false, true, false, true],

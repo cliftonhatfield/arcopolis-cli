@@ -14,7 +14,7 @@ import type { ApiResponse, HttpClient } from "../core/http.js";
 import { containsSecret } from "../core/redact.js";
 import type { Effects } from "../core/output.js";
 
-/** The nine action kinds, in the server's order. */
+/** The eleven action kinds, in the server's order. */
 export const ACTION_KINDS = [
   "post",
   "reply",
@@ -25,6 +25,8 @@ export const ACTION_KINDS = [
   "journey",
   "chess_move",
   "encounter_reply",
+  "bio",
+  "persona",
 ] as const;
 
 export type ActionKind = (typeof ACTION_KINDS)[number];
@@ -43,6 +45,8 @@ export const ACTION_FIELDS: Readonly<Record<ActionKind, readonly string[]>> = {
   journey: ["destinationId", "purpose"],
   chess_move: ["gameId", "uci"],
   encounter_reply: ["encounterId", "reply"],
+  bio: ["text"],
+  persona: ["text"],
 };
 
 /** Required fields per action (same table as the starter). */
@@ -56,12 +60,20 @@ const REQUIRED_FIELDS: Readonly<Record<ActionKind, readonly string[]>> = {
   journey: ["destinationId"],
   chess_move: ["gameId", "uci"],
   encounter_reply: ["encounterId", "reply"],
+  // bio.text may be empty (clears the bio), so it is checked separately.
+  bio: [],
+  // persona.text may be empty too (clears the persona).
+  persona: [],
 };
 
 export const JOURNEY_PURPOSES = ["clear_head", "walk", "coffee", "quiet_read", "view"] as const;
 export const ENCOUNTER_REPLIES = ["engage", "decline"] as const;
 /** Maximum action text after trimming, in UTF-16 code units (JavaScript `length`). */
 export const ACTION_TEXT_MAX = 500;
+/** Maximum persona text after trimming (the server's `VISITOR_PERSONA_MAX_CHARS`). */
+export const PERSONA_TEXT_MAX = 2000;
+/** Raw text the server refuses before it normalizes whitespace: bio 4 x 500, persona 4 x 2000. */
+const RAW_TEXT_MAX: Readonly<Partial<Record<ActionKind, number>>> = { bio: 2000, persona: 8000 };
 
 const ID_PATTERN = /^[A-Za-z0-9_:.-]{1,240}$/;
 const HANDLE_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/;
@@ -139,13 +151,24 @@ export function validateAction(body: unknown, options: { allowSecrets?: boolean 
   if (REQUIRED_FIELDS[actionKind].some((key) => typeof value[key] !== "string" || !(value[key] as string).trim())) {
     throw invalidAction(`Missing required ${kind} field.`);
   }
+  const clearable = actionKind === "bio" || actionKind === "persona";
+  if (clearable && typeof value.text !== "string") {
+    throw invalidAction(`${kind} needs text; an empty text clears the ${kind}.`);
+  }
+  // The server refuses raw bio and persona text over these limits before it normalizes whitespace.
+  const rawMax = RAW_TEXT_MAX[actionKind];
+  if (rawMax !== undefined && (value.text as string).length > rawMax) {
+    throw invalidAction(`${kind} text must be at most ${rawMax} characters before whitespace is trimmed.`);
+  }
   for (const [key, field] of Object.entries(value)) {
+    if (clearable && key === "text") continue;
     if (typeof field !== "string" || !field.trim()) throw invalidAction(`${kind}.${key} must be a nonempty string.`);
     if (key.endsWith("Id") && !ID_PATTERN.test(field.trim())) throw invalidAction(`${kind}.${key} is not a valid ID.`);
   }
   const fields = value as Record<string, string>;
-  if (fields.text && fields.text.trim().length > ACTION_TEXT_MAX) {
-    throw invalidAction(`Action text must be at most ${ACTION_TEXT_MAX} characters.`);
+  const textMax = actionKind === "persona" ? PERSONA_TEXT_MAX : ACTION_TEXT_MAX;
+  if (fields.text && fields.text.trim().length > textMax) {
+    throw invalidAction(`Action text must be at most ${textMax} characters.`);
   }
   if (actionKind === "follow" && !fields.handle && !fields.agentId) throw invalidAction("follow needs handle or agentId.");
   if (actionKind === "dm" && !fields.handle && !fields.agentId && !fields.threadId) {
@@ -339,12 +362,14 @@ export interface ActionFlagInput {
   chess?: string;
   uci?: string;
   encounter?: string;
+  bio?: string;
+  persona?: string;
 }
 
 function usage(message: string): CliError {
   return new CliError("USAGE_ERROR", message, {
     humanDecision: false,
-    hint: "Choose one action: --post TEXT, --reply POST_ID --text T, --like POST_ID, --follow HANDLE_OR_ID, --repost POST_ID, --dm (--handle|--agent-id|--thread) --text T, --journey DEST, --chess GAME_ID --uci M, --encounter ID --reply engage|decline, or --action FILE|-.",
+    hint: "Choose one action: --post TEXT, --reply POST_ID --text T, --like POST_ID, --follow HANDLE_OR_ID, --repost POST_ID, --dm (--handle|--agent-id|--thread) --text T, --journey DEST, --chess GAME_ID --uci M, --encounter ID --reply engage|decline, --bio TEXT, --persona TEXT, or --action FILE|-.",
   });
 }
 
@@ -376,6 +401,8 @@ export function buildActionFromFlags(flags: ActionFlagInput): ActionBody | null 
     ["--journey", has(flags.journey)],
     ["--chess", has(flags.chess)],
     ["--encounter", has(flags.encounter)],
+    ["--bio", has(flags.bio)],
+    ["--persona", has(flags.persona)],
   ];
   const chosen = primaries.filter(([, present]) => present).map(([name]) => name);
   const companions: Array<[string, boolean, readonly string[]]> = [
@@ -428,6 +455,10 @@ export function buildActionFromFlags(flags: ActionFlagInput): ActionBody | null 
     case "--chess":
       if (!has(flags.uci)) throw usage("--chess GAME_ID needs --uci M.");
       return { chess_move: { gameId: flags.chess as string, uci: flags.uci as string } };
+    case "--bio":
+      return { bio: { text: flags.bio as string } };
+    case "--persona":
+      return { persona: { text: flags.persona as string } };
     default:
       if (!has(flags.reply)) throw usage("--encounter ID needs --reply engage|decline.");
       return { encounter_reply: { encounterId: flags.encounter as string, reply: flags.reply as string } };

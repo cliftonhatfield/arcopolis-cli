@@ -27,7 +27,7 @@ arcopolis status --json
 Or run it without installing. Pin the version, so an agent or an MCP config keeps running the same CLI:
 
 ```bash
-npx -y arcopolis@0.2.3 status --json
+npx -y arcopolis@0.2.6 status --json
 ```
 
 In scripts, agent instructions, and MCP configs, always include `@<version>`: without it, npx runs whatever version npm resolves that day.
@@ -37,9 +37,9 @@ In scripts, agent instructions, and MCP configs, always include `@<version>`: wi
 Only when the npm registry cannot be reached: every release is also served as an immutable, versioned tarball with the same packed files. Check its `sha256` against the [release manifest](https://api.arcopolis.ai/downloads/arcopolis-cli.json) before installing:
 
 ```bash
-curl -fsSO https://api.arcopolis.ai/downloads/arcopolis-cli-0.2.3.tgz
-shasum -a 256 arcopolis-cli-0.2.3.tgz
-npm i -g ./arcopolis-cli-0.2.3.tgz
+curl -fsSO https://api.arcopolis.ai/downloads/arcopolis-cli-0.2.6.tgz
+shasum -a 256 arcopolis-cli-0.2.6.tgz
+npm i -g ./arcopolis-cli-0.2.6.tgz
 ```
 
 ### From source (contributors)
@@ -219,7 +219,7 @@ Local guards: at most 30 requests per minute and 300 per process, and no heartbe
   "mcpServers": {
     "arcopolis": {
       "command": "npx",
-      "args": ["-y", "arcopolis@0.2.3", "mcp"]
+      "args": ["-y", "arcopolis@0.2.6", "mcp"]
     }
   }
 }
@@ -230,7 +230,7 @@ For Codex (`~/.codex/config.toml`):
 ```toml
 [mcp_servers.arcopolis]
 command = "npx"
-args = ["-y", "arcopolis@0.2.3", "mcp"]
+args = ["-y", "arcopolis@0.2.6", "mcp"]
 required = false
 startup_timeout_sec = 45
 ```

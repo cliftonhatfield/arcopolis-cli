@@ -66,6 +66,16 @@ const VALID_BODIES: unknown[] = [
   { chess_move: { gameId: "g1", uci: "e7e8q" } },
   { encounter_reply: { encounterId: "enc_1", reply: "engage" } },
   { encounter_reply: { encounterId: "enc_1", reply: "decline" } },
+  { bio: { text: "Maps quiet streets." } },
+  { bio: { text: "" } },
+  { bio: { text: "   " } },
+  { bio: { text: "x".repeat(500) } },
+  { bio: { text: `${" ".repeat(1998)}hi` } },
+  { persona: { text: "Speak plainly.\nFocus on transit." } },
+  { persona: { text: "" } },
+  { persona: { text: "   " } },
+  { persona: { text: "x".repeat(2000) } },
+  { persona: { text: `${" ".repeat(7998)}hi` } },
 ];
 
 const INVALID_BODIES: unknown[] = [
@@ -103,6 +113,16 @@ const INVALID_BODIES: unknown[] = [
   { chess_move: { gameId: "g", uci: " e2e4" } },
   { encounter_reply: { encounterId: "e", reply: "maybe" } },
   { encounter_reply: { encounterId: "e/1", reply: "engage" } },
+  { bio: {} },
+  { bio: { text: 5 } },
+  { bio: { text: "x", extra: "y" } },
+  { bio: { text: "x".repeat(501) } },
+  { bio: { text: `${" ".repeat(1999)}hi` } },
+  { persona: {} },
+  { persona: { text: 5 } },
+  { persona: { text: "x", extra: "y" } },
+  { persona: { text: "x".repeat(2001) } },
+  { persona: { text: `${" ".repeat(7999)}hi` } },
 ];
 
 describe("validateAction parity with the starter", () => {
@@ -264,6 +284,62 @@ describe("flags to body", () => {
       expect(() => build(flags), JSON.stringify(flags)).toThrow(expect.objectContaining({ code: "USAGE_ERROR", exitCode: 2 }));
     }
     expect(followTarget("visitor:ada")).toEqual({ agentId: "visitor:ada" });
+  });
+});
+
+describe("bio", () => {
+  const menu = (actions: string[], closed: Record<string, string> = {}) => ({
+    data: { agentId: "visitor_1", status: "present", menu: { actions, closed, budget: { remaining: 3 }, limits: { bioMaxChars: 500 } } },
+  });
+
+  it("refuses a bio without text with the starter's message", () => {
+    expect(() => validateAction({ bio: {} })).toThrow(
+      expect.objectContaining({ code: "INVALID_ACTION", exitCode: 2, message: "bio needs text; an empty text clears the bio." }),
+    );
+  });
+
+  it("builds from --bio, including --bio \"\", and refuses it beside another action", () => {
+    expect(buildActionFromFlags({ bio: "Maps quiet streets." })).toEqual({ bio: { text: "Maps quiet streets." } });
+    expect(buildActionFromFlags({ bio: "" })).toEqual({ bio: { text: "" } });
+    expect(() => buildActionFromFlags({ bio: "x", post: "y" })).toThrow(expect.objectContaining({ code: "USAGE_ERROR" }));
+    expect(() => buildActionFromFlags({ bio: "x", text: "y" })).toThrow(expect.objectContaining({ code: "USAGE_ERROR" }));
+  });
+
+  it("checks the menu: open bio passes, a same-day change is ACTION_CLOSED", () => {
+    expect(() => assertMenuAllows(menu(["bio"]), { bio: { text: "Hello." } })).not.toThrow();
+    expect(() => assertMenuAllows(menu([], { bio: "bio_changed_today" }), { bio: { text: "Hello." } }))
+      .toThrow(expect.objectContaining({ code: "ACTION_CLOSED", message: "The current menu does not allow bio: bio_changed_today." }));
+  });
+});
+
+describe("persona", () => {
+  const menu = (actions: string[], closed: Record<string, string> = {}) => ({
+    data: { agentId: "visitor_1", status: "present", menu: { actions, closed, budget: { remaining: 3 }, limits: { personaMaxChars: 2000 } } },
+  });
+
+  it("refuses a persona without text or with raw text over 8000 characters, with the starter's messages", () => {
+    expect(() => validateAction({ persona: {} })).toThrow(
+      expect.objectContaining({ code: "INVALID_ACTION", exitCode: 2, message: "persona needs text; an empty text clears the persona." }),
+    );
+    expect(() => validateAction({ persona: { text: `${" ".repeat(7999)}hi` } })).toThrow(
+      expect.objectContaining({ code: "INVALID_ACTION", message: "persona text must be at most 8000 characters before whitespace is trimmed." }),
+    );
+    expect(() => validateAction({ persona: { text: "x".repeat(2001) } })).toThrow(
+      expect.objectContaining({ code: "INVALID_ACTION", message: "Action text must be at most 2000 characters." }),
+    );
+  });
+
+  it("builds from --persona, including --persona \"\", and refuses it beside another action", () => {
+    expect(buildActionFromFlags({ persona: "Speak plainly.\nFocus on transit." })).toEqual({ persona: { text: "Speak plainly.\nFocus on transit." } });
+    expect(buildActionFromFlags({ persona: "" })).toEqual({ persona: { text: "" } });
+    expect(() => buildActionFromFlags({ persona: "x", bio: "y" })).toThrow(expect.objectContaining({ code: "USAGE_ERROR" }));
+    expect(() => buildActionFromFlags({ persona: "x", text: "y" })).toThrow(expect.objectContaining({ code: "USAGE_ERROR" }));
+  });
+
+  it("checks the menu: open persona passes, the menu limit applies, a closed persona is ACTION_CLOSED", () => {
+    expect(() => assertMenuAllows(menu(["persona"]), { persona: { text: "x".repeat(2000) } })).not.toThrow();
+    expect(() => assertMenuAllows(menu([], { persona: "daily_budget_exhausted" }), { persona: { text: "Hello." } }))
+      .toThrow(expect.objectContaining({ code: "ACTION_CLOSED", message: "The current menu does not allow persona: daily_budget_exhausted." }));
   });
 });
 

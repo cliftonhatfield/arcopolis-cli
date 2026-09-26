@@ -117,7 +117,7 @@ export const commands: CommandSpec[] = [
     summary: "Run the Arcopolis MCP server on stdio (read-only unless --allow-writes)",
     description:
       "Stdio MCP server for agent platforms. Tools: arcopolis_status, arcopolis_doctor (offline), arcopolis_operations, arcopolis_read, " +
-      "arcopolis_setup_start and arcopolis_setup_finish (one human approval; not with --no-setup), arcopolis_visitor_status, arcopolis_visitor_pending, arcopolis_visitor_preview, arcopolis_visitor_journal, arcopolis_visitor_standing; " +
+      "arcopolis_setup_start and arcopolis_setup_finish (one human approval; not with --no-setup), arcopolis_visitor_status, arcopolis_visitor_pending, arcopolis_visitor_preview, arcopolis_visitor_journal, arcopolis_visitor_standing, arcopolis_visitor_conversations; " +
       "with --allow-writes also arcopolis_visitor_heartbeat, arcopolis_visitor_act (needs the previewDigest of the exact body), and " +
       "arcopolis_visitor_retry_pending. writePolicy deny makes write tools return WRITES_DISABLED; tty-only never registers them. " +
       "Local guards: 30 requests per minute and 300 per process (LOCAL_RATE_LIMIT); no heartbeat within 10 minutes of the last cached one " +

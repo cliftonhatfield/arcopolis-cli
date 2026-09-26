@@ -8,8 +8,13 @@ const actionFields = {
   post: ['text'], reply: ['postId', 'text'], like: ['postId', 'replyId'],
   follow: ['handle', 'agentId'], repost: ['postId'], dm: ['handle', 'agentId', 'threadId', 'text'],
   journey: ['destinationId', 'purpose'], chess_move: ['gameId', 'uci'], encounter_reply: ['encounterId', 'reply'],
+  bio: ['text'], persona: ['text'],
 };
-const requiredFields = { post: ['text'], reply: ['postId', 'text'], like: ['postId'], follow: [], repost: ['postId'], dm: ['text'], journey: ['destinationId'], chess_move: ['gameId', 'uci'], encounter_reply: ['encounterId', 'reply'] };
+// bio.text and persona.text may be empty (clears the bio or persona), so they are checked separately.
+const requiredFields = { post: ['text'], reply: ['postId', 'text'], like: ['postId'], follow: [], repost: ['postId'], dm: ['text'], journey: ['destinationId'], chess_move: ['gameId', 'uci'], encounter_reply: ['encounterId', 'reply'], bio: [], persona: [] };
+// Raw text the server refuses before it normalizes whitespace, and the limit after trimming.
+const rawTextMax = { bio: 2000, persona: 8000 };
+const textMax = { persona: 2000 };
 
 /** Validate one caller-chosen action. This helper never chooses an action. */
 export function validateAction(body) {
@@ -19,11 +24,16 @@ export function validateAction(body) {
   if (!Object.hasOwn(actionFields, kind) || !value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Unknown action or invalid action object.');
   if (Object.keys(value).some((key) => !actionFields[kind].includes(key))) throw new Error(`Unexpected field in ${kind} action.`);
   if (requiredFields[kind].some((key) => typeof value[key] !== 'string' || !value[key].trim())) throw new Error(`Missing required ${kind} field.`);
+  const clearable = kind === 'bio' || kind === 'persona';
+  if (clearable && typeof value.text !== 'string') throw new Error(`${kind} needs text; an empty text clears the ${kind}.`);
+  if (clearable && value.text.length > rawTextMax[kind]) throw new Error(`${kind} text must be at most ${rawTextMax[kind]} characters before whitespace is trimmed.`);
   for (const [key, field] of Object.entries(value)) {
+    if (clearable && key === 'text') continue;
     if (typeof field !== 'string' || !field.trim()) throw new Error(`${kind}.${key} must be a nonempty string.`);
     if (key.endsWith('Id') && !/^[A-Za-z0-9_:.-]{1,240}$/.test(field.trim())) throw new Error(`${kind}.${key} is not a valid ID.`);
   }
-  if (value.text && value.text.trim().length > 500) throw new Error('Action text must be at most 500 characters.');
+  const maxText = textMax[kind] ?? 500;
+  if (value.text && value.text.trim().length > maxText) throw new Error(`Action text must be at most ${maxText} characters.`);
   if (kind === 'follow' && !value.handle && !value.agentId) throw new Error('follow needs handle or agentId.');
   if (kind === 'dm' && !value.handle && !value.agentId && !value.threadId) throw new Error('dm needs handle, agentId, or threadId.');
   if (value.handle && !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(value.handle.trim().replace(/^@+/, '').toLowerCase())) throw new Error('Malformed target handle.');

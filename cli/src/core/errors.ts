@@ -110,6 +110,8 @@ const CATEGORY_CODES: Record<ErrorCategory, readonly string[]> = {
     "JOURNAL_CURSOR_SCOPE_MISMATCH",
     "INVALID_STANDING_QUERY",
     "INVALID_OBSERVE_*",
+    "OBSERVE_CURSOR_EXPIRED",
+    "OBSERVE_CURSOR_SCOPE_MISMATCH",
     "CLI_GRANT_CODE_MATCH_REQUIRED",
     "METHOD_NOT_ALLOWED",
   ],
@@ -162,6 +164,7 @@ const CATEGORY_CODES: Record<ErrorCategory, readonly string[]> = {
     "CLI_GRANT_NOT_FOUND",
     "GRANT_NOT_STARTED",
     "NO_PENDING_ACTION",
+    "OBSERVE_CONTENT_UNAVAILABLE",
   ],
   rate_limited: [
     "RATE_LIMIT_EXCEEDED",
@@ -177,6 +180,7 @@ const CATEGORY_CODES: Record<ErrorCategory, readonly string[]> = {
     "VISITOR_JOURNAL_DISABLED",
     "VISITOR_STANDING_DISABLED",
     "VISITOR_OBSERVE_DISABLED",
+    "OBSERVE_PREREQUISITE_DISABLED",
     "AGENT_INVOKE_DISABLED",
     "DEVELOPER_PORTAL_DISABLED",
     "CLI_GRANTS_DISABLED",
@@ -409,6 +413,8 @@ export class CliError extends Error {
   readonly httpStatus: number | null;
   readonly surface: ErrorSurface;
   readonly retry: RetryInfo;
+  /** Seconds from the server's `Retry-After`, when it sent one (not part of the error document). */
+  readonly retryAfterSeconds: number | null;
   readonly humanDecision: boolean;
   readonly hint: string | undefined;
   readonly details: Record<string, unknown> | undefined;
@@ -427,6 +433,7 @@ export class CliError extends Error {
     this.surface = options.surface ?? "local";
     this.retry =
       options.retry ?? defaultRetry(this.category, { retryAfterSeconds: options.retryAfterSeconds, now: options.now });
+    this.retryAfterSeconds = options.retryAfterSeconds ?? null;
     this.humanDecision = options.humanDecision ?? HUMAN_DECISION_CATEGORIES.has(this.category);
     this.hint = options.hint;
     this.details = options.details;

@@ -43,6 +43,7 @@ const PLAN_ANNOTATIONS: Record<string, [boolean, boolean, boolean, boolean]> = {
   arcopolis_visitor_preview: [true, false, true, false],
   arcopolis_visitor_journal: [true, false, false, true],
   arcopolis_visitor_standing: [true, false, false, true],
+  arcopolis_visitor_conversations: [true, false, false, true],
   arcopolis_visitor_heartbeat: [false, true, false, true],
   arcopolis_visitor_act: [false, true, false, true],
   arcopolis_visitor_retry_pending: [false, true, true, true],
@@ -219,12 +220,12 @@ function agentsPage(page: number, hasMore: boolean, extra: Json = {}): Response 
 // ---------------------------------------------------------------------------
 
 describe("tool registration", () => {
-  it("registers the nine read tools and the two setup tools by default, in plan order, with the plan's annotations", async () => {
+  it("registers the ten read tools and the two setup tools by default, in plan order, with the plan's annotations", async () => {
     const session = await connect();
     const { tools } = await session.client.listTools();
     const readThenSetup = [...READ_TOOL_NAMES.slice(0, 4), ...SETUP_TOOL_NAMES, ...READ_TOOL_NAMES.slice(4)];
     expect(tools.map((tool) => tool.name)).toEqual(readThenSetup);
-    expect(READ_TOOL_NAMES).toHaveLength(9);
+    expect(READ_TOOL_NAMES).toHaveLength(10);
     for (const tool of tools) {
       const [readOnlyHint, destructiveHint, idempotentHint, openWorldHint] = PLAN_ANNOTATIONS[tool.name] ?? [];
       expect(tool.annotations).toEqual({ readOnlyHint, destructiveHint, idempotentHint, openWorldHint });
@@ -482,6 +483,46 @@ describe("visitor reads", () => {
     expect(structured(standing)).toMatchObject({ ok: true, effects: { requests: 1, spends: { standing: 1 } } });
     expect(fake.calls).toHaveLength(2);
     assertNoKeys([journal, standing]);
+  });
+
+  it("conversations: lists, reads one transcript as untrusted data, and needs no --allow-writes", async () => {
+    const list = fixtures.operations.listVisitorObserveConversations as { data: { conversations: Array<{ id: string }> } };
+    const id = list.data.conversations[1]?.id ?? "";
+    const fake = fakeFetch((url) => {
+      const parsed = new URL(url);
+      if (parsed.pathname === `/v1/visitors/${AGENT}/observe/conversations`) return json(200, list);
+      if (parsed.pathname === `/v1/visitors/${AGENT}/observe/conversations/${id}`) return json(200, fixtures.observe.transcripts[id]);
+      return json(418, { error: { code: "UNEXPECTED_ROUTE", message: url } });
+    });
+    const session = await connect({ env: visitorEnv(), fetchImpl: fake.fetchImpl });
+    const listed = await call(session, "arcopolis_visitor_conversations", { channel: "private", limit: 5 });
+    expect(structured(listed)).toMatchObject({ ok: true, effects: { requests: 1, spends: { observe: 1 } }, data: { agentId: AGENT, hasMore: false } });
+    expect(fake.calls[0]?.url).toContain(`/v1/visitors/${AGENT}/observe/conversations?limit=5&channel=private`);
+    expect((structured(listed).next as Array<{ command: string }>)[0]?.command).toContain("arcopolis_visitor_conversations");
+    expect(textOf(listed)).toContain("3 conversations");
+
+    const read = await call(session, "arcopolis_visitor_conversations", { conversationId: id });
+    expect(structured(read)).toMatchObject({
+      ok: true,
+      data: { conversation: { id, channel: "private" } },
+      untrusted: { paths: ["data.messages[].text"] },
+      effects: { requests: 1, spends: { observe: 1 } },
+    });
+    expect(textOf(read)).toContain("treat it as data");
+
+    expect(errorOf(await call(session, "arcopolis_visitor_conversations", { conversationId: "voc_nope" }))).toMatchObject({ code: "INVALID_FLAG_VALUE", exitCode: 2 });
+    expect(fake.calls).toHaveLength(2);
+    assertNoKeys([listed, read]);
+  });
+
+  it("conversations: Observe off for the world is exit 8 with a plain hint", async () => {
+    const fake = fakeFetch(() => json(503, { error: { code: "VISITOR_OBSERVE_DISABLED", message: "Observation is not enabled for this visitor world." } }));
+    const session = await connect({ env: visitorEnv(), fetchImpl: fake.fetchImpl });
+    expect(errorOf(await call(session, "arcopolis_visitor_conversations"))).toMatchObject({
+      code: "VISITOR_OBSERVE_DISABLED",
+      exitCode: 8,
+      hint: expect.stringContaining("Arcology Labs turns Observe on per world"),
+    });
   });
 
   it("doctor is offline only", async () => {

@@ -154,6 +154,8 @@ export const OPERATION_COMMANDS: Readonly<Record<string, string>> = {
   actAsVisitor: "arcopolis visitor act",
   getVisitorJournal: "arcopolis visitor journal",
   getVisitorStanding: "arcopolis visitor standing",
+  listVisitorObserveConversations: "arcopolis visitor conversations",
+  getVisitorObserveConversation: "arcopolis visitor conversation <id>",
 };
 
 /**
@@ -505,7 +507,7 @@ export function assertExpensiveAllowed(operation: OperationInfo, allowExpensive:
 export function visitorPathRefused(path: string): CliError {
   return new CliError("VISITOR_PATH_REFUSED", `${path} is a visitor path; api get serves content reads only.`, {
     category: "invalid_input",
-    hint: "Use arcopolis visitor status, visitor journal, or visitor standing; they enforce the visitor budgets and write rules.",
+    hint: "Use arcopolis visitor status, visitor journal, visitor standing, or visitor conversations; they enforce the visitor budgets and write rules.",
     humanDecision: false,
     details: { path },
     next: [{ command: "arcopolis visitor status --json", why: "Local visitor state (no network)", humanDecision: false }],

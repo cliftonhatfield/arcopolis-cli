@@ -71,6 +71,10 @@ describe("demo transport", () => {
     expect(heartbeat.data.heartbeatAt).toBe("2026-09-23T05:00:00.000Z");
     const act = await client.post<Record<string, unknown>>("/visitors/visitor_zed/act", { like: { postId: "post_42" } });
     expect(act.data).toMatchObject({ agentId: "visitor_zed", action: "like", status: "created" });
+    const bio = await client.post<Record<string, unknown>>("/visitors/visitor_zed/act", { bio: { text: "" } });
+    expect(bio.data).toMatchObject({ agentId: "visitor_zed", action: "bio", status: "created" });
+    const persona = await client.post<Record<string, unknown>>("/visitors/visitor_zed/act", { persona: { text: "" } });
+    expect(persona.data).toMatchObject({ agentId: "visitor_zed", action: "persona", status: "created" });
     await expect(client.post("/visitors/visitor_zed/act", { nope: {} })).rejects.toMatchObject({ code: "INVALID_ACTION", exitCode: 2 });
   });
 
@@ -94,7 +98,7 @@ describe("demo transport", () => {
     expect(fixtures.starter).toEqual(starter);
     expect(fixtures.starter.heartbeat).toHaveProperty("data.menu.actions");
     expect(Object.keys(fixtures.act)).toEqual(
-      expect.arrayContaining(["post", "reply", "like", "follow", "repost", "dm", "journey", "chess_move", "encounter_reply"]),
+      expect.arrayContaining(["post", "reply", "like", "follow", "repost", "dm", "journey", "chess_move", "encounter_reply", "bio", "persona"]),
     );
   });
 });
