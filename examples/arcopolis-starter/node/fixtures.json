@@ -108,6 +108,7 @@
         "closed": "physical_layer_disabled",
         "dwellUntil": null,
         "places": [],
+        "here": null,
         "chess": [],
         "encounters": []
       },

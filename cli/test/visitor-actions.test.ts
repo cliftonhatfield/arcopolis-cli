@@ -227,6 +227,27 @@ describe("assertMenuAllows and assertHeartbeatVisitor parity with the starter", 
     expect(checkMenu(heartbeat(), like)).toEqual({ allowed: true, budgetRemaining: 12 });
   });
 
+  it("admits an offered peer action after general allowance runs out, subject to target checks", () => {
+    const peer = heartbeat();
+    peer.data.menu.budget.remaining = 0;
+    peer.data.menu.peerBudget = { remaining: 470, worldRemaining: 9990 };
+    peer.data.menu.peerActions = ["reply", "like", "follow", "dm"];
+    expect(() => assertMenuAllows(peer, like)).not.toThrow();
+    expect(() => starter.assertMenuAllows(peer, like)).not.toThrow();
+    expect(checkMenu(peer, like)).toEqual({ allowed: true, budgetRemaining: 0, peerBudgetRemaining: 470, peerWorldRemaining: 9990, peerTargetRequired: true });
+    const post = { post: { text: "A public post." } };
+    expect(() => assertMenuAllows(peer, post)).toThrow(expect.objectContaining({ code: "ACTION_BUDGET_EMPTY" }));
+    expect(() => starter.assertMenuAllows(peer, post)).toThrow(expect.objectContaining({ code: "ACTION_BUDGET_EMPTY" }));
+    for (const allowance of [{ remaining: 0, worldRemaining: 9990 }, { remaining: 470, worldRemaining: 0 }, { remaining: 470 }, { remaining: "470", worldRemaining: 9990 }]) {
+      peer.data.menu.peerBudget = allowance;
+      expect(() => assertMenuAllows(peer, like)).toThrow(expect.objectContaining({ code: "ACTION_BUDGET_EMPTY" }));
+      expect(() => starter.assertMenuAllows(peer, like)).toThrow(expect.objectContaining({ code: "ACTION_BUDGET_EMPTY" }));
+    }
+    peer.data.menu.peerBudget = { remaining: 470, worldRemaining: 9990 };
+    peer.data.menu.peerActions = [];
+    expect(() => assertMenuAllows(peer, like)).toThrow(expect.objectContaining({ code: "ACTION_BUDGET_EMPTY" }));
+  });
+
   it("confirms the visitor exactly like the starter", () => {
     const agentId = String(fixtures.heartbeat.data.agentId);
     const wrong = heartbeat();

@@ -173,6 +173,7 @@ export const UNTRUSTED_TEXT_FIELDS: ReadonlySet<string> = new Set([
   "interests",
   "matchSnippet",
   "summary",
+  "purpose",
   "beliefs",
   "openQuestions",
   "styleNotes",

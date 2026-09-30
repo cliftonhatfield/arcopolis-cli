@@ -183,8 +183,8 @@ function heartbeatEnvelope(at: Date, extra: Json = {}): Json {
   return copy;
 }
 
-async function writeCache(at: Date): Promise<void> {
-  const envelope = heartbeatEnvelope(at) as { data: HeartbeatData };
+async function writeCache(at: Date, extra: Json = {}): Promise<void> {
+  const envelope = heartbeatEnvelope(at, extra) as { data: HeartbeatData };
   const cache = applyHeartbeat(null, envelope.data, { agentId: AGENT, baseUrl: BASE, now: at });
   const file = path.join(cfg, cacheFileName(AGENT));
   await mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
@@ -301,6 +301,16 @@ describe("envelopes, errors, and redaction", () => {
     expect(textOf(result)).toContain("cached heartbeat 5 minutes old");
     const empty = await connect();
     expect(structured(await call(empty, "arcopolis_status"))).toMatchObject({ data: { visitorCache: null } });
+  });
+
+  it("status retains the separate cached peer allowance after general allowance is exhausted", async () => {
+    const now = new Date("2026-09-23T15:00:00.000Z");
+    const peerActions = ["reply", "like", "follow", "dm"];
+    await writeCache(now, { menu: { actions: peerActions, budget: { remaining: 0 }, peerActions, peerBudget: { remaining: 470, worldRemaining: 9990 } } });
+    const session = await connect({ env: visitorEnv(), now: () => now });
+    expect(structured(await call(session, "arcopolis_status"))).toMatchObject({
+      data: { visitorCache: { actionsRemaining: 0, peerActionsRemaining: 470, peerWorldActionsRemaining: 9990, peerActions } },
+    });
   });
 
   it("never returns a stored key (status, preview, pending)", async () => {

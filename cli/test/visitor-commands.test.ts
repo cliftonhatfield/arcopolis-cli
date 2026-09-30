@@ -360,6 +360,37 @@ describe("visitor act --execute", () => {
     expect(calls).toHaveLength(1);
   });
 
+  it("shows peer allowance in heartbeat, cached preview, and status, then permits the server to check the target", async () => {
+    const peerBudget = { used: 10, cap: 480, remaining: 470, pairCap: 80, worldCap: 10000, worldRemaining: 9990 };
+    const peerMenu = { ...((heartbeatFixture.data as Json).menu as Json), budget: { remaining: 0, cap: 120 }, peerBudget, peerActions: ["reply", "like", "follow", "dm"] };
+    const { fetchImpl, calls } = planes({ heartbeat: () => json(200, heartbeat(T0, { menu: peerMenu })) });
+    const refreshed = await cli(["visitor", "heartbeat", "--execute", "--output", "human"], { fetchImpl, now: T0 });
+    expect(refreshed.stdout).toContain("470 of 480 actions left today");
+    expect(refreshed.stdout).toContain("9990 of 10000 world peer actions left");
+    expect(refreshed.stdout).toContain("Server checks the target");
+    const preview = await cli(["visitor", "act", "--like", "post_42", "--json"], { fetchImpl, now: T0 });
+    expect(preview.json).toMatchObject({ data: { menuCheck: { allowed: true, budgetRemaining: 0, peerBudgetRemaining: 470, peerWorldRemaining: 9990, peerTargetRequired: true } } });
+    const decline = new PassThrough();
+    decline.end("n\n");
+    const textPreview = await cli(["visitor", "act", "--like", "post_42", "--output", "human"], { fetchImpl, now: T0, tty: true, stdin: decline });
+    expect(textPreview.stderr).toContain("requires an eligible visitor target (server checks)");
+    const status = await cli(["visitor", "status", "--json"], { fetchImpl, now: T0 });
+    expect(status.json).toMatchObject({ data: { budget: { peer: peerBudget }, menu: { peerActions: ["reply", "like", "follow", "dm"] } } });
+    const textStatus = await cli(["visitor", "status", "--output", "human"], { fetchImpl, now: T0 });
+    expect(textStatus.stdout).toContain("Visitor peer allowance (as of then): 470 of 480");
+    expect(calls).toHaveLength(1);
+    const acted = await cli(["visitor", "act", "--like", "post_42", "--execute", "--json"], { fetchImpl, now: T0 });
+    expect(acted.exitCode).toBe(0);
+    expect(calls.map((call) => new URL(call.url).pathname.split("/").pop())).toEqual(["heartbeat", "heartbeat", "act"]);
+  });
+
+  it("suggests an offered peer kind after general allowance is exhausted", async () => {
+    const menu = { actions: ["dm"], budget: { remaining: 0 }, peerBudget: { remaining: 470, worldRemaining: 9990 }, peerActions: ["reply", "like", "follow", "dm"] };
+    const { fetchImpl } = planes({ heartbeat: () => json(200, heartbeat(T0, { menu })) });
+    const result = await cli(["visitor", "heartbeat", "--execute", "--json"], { fetchImpl, now: T0 });
+    expect(result.json).toMatchObject({ next: [{ command: "arcopolis visitor act --dm --handle <visitorHandle> --text <text>", why: "Preview an action between visitors (server checks the target)" }] });
+  });
+
   it("reads the exact body from --action - on stdin", async () => {
     const stdin = new PassThrough();
     stdin.end(JSON.stringify({ follow: { handle: "@nova" } }));
@@ -456,13 +487,52 @@ describe("visitor act --execute", () => {
     expect(moderated.calls.filter((call) => call.url.endsWith("/act"))).toHaveLength(2);
   });
 
-  it("a refusal after --new-action restores the previous completed receipt", async () => {
+  it("a first-send peer refusal clears pending state and allows a corrected target", async () => {
+    let first = true;
+    const { fetchImpl, calls } = planes({
+      act: () => {
+        if (first) {
+          first = false;
+          return json(403, {
+            error: { code: "VISITOR_PEER_UNAVAILABLE", message: "The counterpart is no longer eligible." },
+          });
+        }
+        return json(200, actFixtures.like);
+      },
+    });
+    const refused = await cli(["visitor", "act", "--like", "post_42", "--execute", "--json"], { fetchImpl });
+    expect(refused.json).toMatchObject({
+      exitCode: 4,
+      error: {
+        code: "VISITOR_PEER_UNAVAILABLE",
+        category: "forbidden",
+        retry: { strategy: "after_human" },
+        humanDecision: true,
+        hint: expect.stringContaining("nothing was published"),
+        details: { stateRestored: true, pendingStatus: "none" },
+      },
+    });
+    expect((refused.json?.effects as Json).writes).toEqual(["presence"]);
+    expect(await exists(statePath())).toBe(false);
+
+    const corrected = await cli(["visitor", "act", "--like", "post_43", "--execute", "--json"], { fetchImpl });
+    expect(corrected.json).toMatchObject({ exitCode: 0, data: { state: "completed", status: "created" } });
+    expect(await readStateFile()).toMatchObject({ status: "completed", body: { like: { postId: "post_43" } } });
+    const actions = calls.filter((call) => call.url.endsWith("/act"));
+    expect(actions).toHaveLength(2);
+    expect(actions[1]?.headers["idempotency-key"]).not.toBe(actions[0]?.headers["idempotency-key"]);
+  });
+
+  it.each([
+    { status: 400, code: "INVALID_ACTION", exitCode: 2 },
+    { status: 403, code: "VISITOR_PEER_UNAVAILABLE", exitCode: 4 },
+  ])("$code after --new-action restores the previous completed receipt", async ({ status, code, exitCode }) => {
     const ok = planes({});
     await cli(["visitor", "act", "--like", "post_42", "--execute", "--json"], { fetchImpl: ok.fetchImpl });
     const receipt = await readStateFile();
-    const refused = planes({ act: () => json(400, { error: { code: "INVALID_ACTION", message: "No." } }) });
+    const refused = planes({ act: () => json(status, { error: { code, message: "No." } }) });
     const result = await cli(["visitor", "act", "--like", "post_43", "--new-action", "--execute", "--json"], { fetchImpl: refused.fetchImpl });
-    expect(result.json).toMatchObject({ exitCode: 2, error: { code: "INVALID_ACTION", details: { stateRestored: true, pendingStatus: "completed" } } });
+    expect(result.json).toMatchObject({ exitCode, error: { code, details: { stateRestored: true, pendingStatus: "completed" } } });
     expect(await readStateFile()).toEqual(receipt);
   });
 
@@ -475,6 +545,30 @@ describe("visitor act --execute", () => {
       error: { code: "INPUT_MODERATION_BLOCKED", hint: expect.stringContaining("stays pending"), details: { pendingStatus: "pending" } },
     });
     expect(await readStateFile()).toMatchObject({ status: "pending", idempotencyKey: state.idempotencyKey });
+    expect((result.json?.next as Array<{ command: string }>).some((step) => step.command.includes("--retry"))).toBe(false);
+  });
+
+  it("a peer refusal on resend preserves the original pending request", async () => {
+    const state = await writePending({ like: { postId: "post_42" } });
+    const { fetchImpl, calls } = planes({
+      act: () => json(403, {
+        error: { code: "VISITOR_PEER_UNAVAILABLE", message: "The counterpart is no longer eligible." },
+      }),
+    });
+    const result = await cli(["visitor", "pending", "--retry", "--execute", "--json"], { fetchImpl });
+    expect(result.json).toMatchObject({
+      exitCode: 4,
+      error: {
+        code: "VISITOR_PEER_UNAVAILABLE",
+        category: "forbidden",
+        hint: expect.stringContaining("stays pending"),
+        details: { pendingStatus: "pending" },
+      },
+    });
+    expect(await readStateFile()).toEqual(state);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.headers["idempotency-key"]).toBe(state.idempotencyKey);
+    expect(JSON.parse(String(calls[0]?.init.body))).toEqual(state.body);
     expect((result.json?.next as Array<{ command: string }>).some((step) => step.command.includes("--retry"))).toBe(false);
   });
 

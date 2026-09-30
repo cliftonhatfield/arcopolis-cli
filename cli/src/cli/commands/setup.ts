@@ -16,11 +16,13 @@
  *    On approval the keys are decrypted, validated, stored at 0600, and the
  *    grant is acknowledged, then each new key gets one `GET /v1`.
  * 4. When R1 answers 401, 404, or 503 `CLI_GRANTS_DISABLED` /
- *    `DEVELOPER_PORTAL_DISABLED` (or the signup probe could not reach the
- *    control plane at all), the guided fallback (plan step 7): a TTY
+ *    `DEVELOPER_PORTAL_DISABLED`, the guided fallback (plan step 7): a TTY
  *    prints the portal link and imports the key from a hidden prompt; without
  *    a TTY it exits 10 `HUMAN_SETUP_REQUIRED` with `humanAction` steps. So
- *    this version is safe before the grant routes are armed.
+ *    this version is safe before the grant routes are armed. When the signup
+ *    probe cannot reach the canonical developer site (network error or
+ *    timeout), that same exit carries one sentence: add the hosted connector
+ *    and approve on your own device. No key is requested.
  *
  * The CLI never accepts terms: the human does, on the approval page.
  */
@@ -67,6 +69,13 @@ import {
 } from "./auth.js";
 import { assertKeysMatchBase } from "./env.js";
 import { PORTAL_AGENT_URL, PORTAL_READ_URL } from "./portal.js";
+
+/** Hosted connector for claude.ai and the Claude app. No CLI, and no key in chat. */
+export const HOSTED_CONNECTOR_URL = "https://api.arcopolis.ai/mcp";
+
+/** The one sentence a person sees when this environment cannot reach the developer site. */
+export const UNREACHABLE_TELL_THE_HUMAN =
+  `Add the Arcopolis connector at ${HOSTED_CONNECTOR_URL} and approve on your own device.`;
 import {
   DEVELOPER_TERMS,
   VISITOR_CORPUS_TERMS,
@@ -318,22 +327,31 @@ interface SignupState {
   termsVersion: string | null;
 }
 
+interface SignupProbe {
+  state: SignupState | null;
+  /** True when the probe failed because the host could not be reached. */
+  unreachable: boolean;
+}
+
 /** `GET /_developer/signup`. A disabled portal (exit 8) is rethrown; other failures only warn. */
-async function probeSignup(ctx: CommandContext): Promise<SignupState | null> {
+async function probeSignup(ctx: CommandContext): Promise<SignupProbe> {
   try {
     const response = await ctx.createControlClient().get<Record<string, unknown>>("/signup", undefined, { purpose: "control" });
     const data = response.data && typeof response.data === "object" ? response.data : {};
     const worlds = data.visitorWorlds && typeof data.visitorWorlds === "object" ? (data.visitorWorlds as { open?: unknown }).open : null;
     return {
-      open: data.open === true,
-      visitorWorldsOpen: typeof worlds === "number" ? worlds : null,
-      termsVersion: typeof data.termsVersion === "string" ? data.termsVersion : null,
+      state: {
+        open: data.open === true,
+        visitorWorldsOpen: typeof worlds === "number" ? worlds : null,
+        termsVersion: typeof data.termsVersion === "string" ? data.termsVersion : null,
+      },
+      unreachable: false,
     };
   } catch (error) {
     if (error instanceof CliError && error.category === "unavailable") throw error;
     const code = error instanceof CliError ? error.code : "INTERNAL";
     ctx.warnings.add("SIGNUP_PROBE_FAILED", `The developer portal probe failed (${code}); continuing with setup.`);
-    return null;
+    return { state: null, unreachable: code === "NETWORK_ERROR" || code === "TIMEOUT" };
   }
 }
 
@@ -350,6 +368,17 @@ function successNext(read: boolean, visitor: boolean): NextStep[] {
 // ---------------------------------------------------------------------------
 // Guided fallback (plan §4.2 step 7)
 // ---------------------------------------------------------------------------
+
+/** One-sentence `humanAction` when the canonical developer site cannot be reached. */
+export function unreachableHumanAction(): Record<string, unknown> {
+  return {
+    mode: "connector",
+    connectorUrl: HOSTED_CONNECTOR_URL,
+    links: { connector: HOSTED_CONNECTOR_URL },
+    steps: [UNREACHABLE_TELL_THE_HUMAN],
+    tellTheHuman: UNREACHABLE_TELL_THE_HUMAN,
+  };
+}
 
 /** The exit-10 `humanAction` block of the guided fallback (no approval grant available). */
 export function guidedHumanAction(input: {
@@ -480,39 +509,49 @@ interface GuidedContext {
   needVisitor: boolean;
   appName: string;
   visitorTermsVersion: string;
+  /** Canonical developer site could not be reached. No portal steps. */
+  unreachable: boolean;
 }
 
-/** Plan §4.2 step 7: without a TTY exit 10 with human steps; in a TTY, hidden-prompt import. */
+/** Plan §4.2 step 7: without a TTY exit 10 with human steps; in a TTY, hidden-prompt import. An unreachable canonical host exits 10 with the connector sentence either way. */
 async function guidedSetup(ctx: CommandContext, guided: GuidedContext): Promise<DocumentResult<SetupData>> {
   const { input, resolved, states, needRead, needVisitor } = guided;
   const ignored = GRANT_ONLY_FLAGS.filter((name) => ctx.flags[name] !== undefined && ctx.flags[name] !== false);
   if (ignored.length) {
     ctx.warnings.add("GRANT_FLAGS_IGNORED", `Ignored by the guided setup (approval grants are not available): ${ignored.map((name) => `--${name}`).join(", ")}.`);
   }
-  if (!ctx.mode.interactive || ctx.mode.demo || ctx.mode.mcp) {
-    const humanAction = guidedHumanAction({
-      needRead,
-      needVisitor,
-      appName: guided.appName,
-      tier: input.tier,
-      world: input.world,
-      slug: input.slug ?? slugify(guided.appName),
-      visitorTermsVersion: guided.visitorTermsVersion,
-    });
+  if (guided.unreachable || !ctx.mode.interactive || ctx.mode.demo || ctx.mode.mcp) {
+    const humanAction = guided.unreachable
+      ? unreachableHumanAction()
+      : guidedHumanAction({
+          needRead,
+          needVisitor,
+          appName: guided.appName,
+          tier: input.tier,
+          world: input.world,
+          slug: input.slug ?? slugify(guided.appName),
+          visitorTermsVersion: guided.visitorTermsVersion,
+        });
     throw new CliError(
       "HUMAN_SETUP_REQUIRED",
-      "A person must create the key in the developer portal and give it to this agent through secret settings.",
+      guided.unreachable
+        ? "This environment cannot reach Arcopolis."
+        : "A person must create the key in the developer portal and give it to this agent through secret settings.",
       {
-        hint: "Give the human humanAction.tellTheHuman exactly. Never ask for a key in chat, and never open the portal or accept terms yourself.",
+        hint: guided.unreachable
+          ? "Give the human humanAction.tellTheHuman exactly, then stop. Do not ask for a key, open the link, or run setup again here."
+          : "Give the human humanAction.tellTheHuman exactly. Never ask for a key in chat, and never open the portal or accept terms yourself.",
         humanDecision: true,
         humanAction,
-        next: [
-          {
-            command: "arcopolis status --json",
-            why: "After the human says the key is set, check that it resolves (no network)",
-            humanDecision: false,
-          },
-        ],
+        next: guided.unreachable
+          ? []
+          : [
+              {
+                command: "arcopolis status --json",
+                why: "After the human says the key is set, check that it resolves (no network)",
+                humanDecision: false,
+              },
+            ],
       },
     );
   }
@@ -711,7 +750,9 @@ export async function runSetup(ctx: CommandContext, mode: SetupMode = "cli"): Pr
   if (!needRead && !needVisitor) return alreadySet(input.wantVisitor);
 
   // Step 2: control-plane liveness and open visitor worlds (no auth, 0 writes).
-  const signup = await probeSignup(ctx);
+  const probe = await probeSignup(ctx);
+  const signup = probe.state;
+  const unreachable = probe.unreachable && developerBase.kind === "canonical";
   if (needVisitor && signup && signup.visitorWorldsOpen === 0) {
     if (!input.wantRead) {
       throw new CliError("NO_VISITOR_WORLD_OPEN", "No visitor world is open right now, so a visitor cannot be registered.", {
@@ -737,9 +778,8 @@ export async function runSetup(ctx: CommandContext, mode: SetupMode = "cli"): Pr
     if (!ctx.mode.demo) await precheckEnvFile(ctx, input.envFile);
   }
 
-  // Step 3: the approval grant. An unreachable control plane (the probe
-  // already failed) cannot run one either, so that goes straight to the
-  // guided steps, which need only the human's own browser.
+  // Step 3: the approval grant. An unreachable canonical control plane
+  // cannot run one either; that path tells the human to use the connector.
   let started: PendingGrant | null = null;
   if (signup) {
     const installId = ctx.mode.demo ? ((await ctx.store.config()).installId ?? "000000") : await store.ensureInstallId();
@@ -768,7 +808,7 @@ export async function runSetup(ctx: CommandContext, mode: SetupMode = "cli"): Pr
   }
 
   // Step 7: guided fallback (grants unavailable).
-  return guidedSetup(ctx, { input, resolved, states, needRead, needVisitor, appName, visitorTermsVersion });
+  return guidedSetup(ctx, { input, resolved, states, needRead, needVisitor, appName, visitorTermsVersion, unreachable });
 }
 
 function renderSetupHuman(view: DocumentView): string {

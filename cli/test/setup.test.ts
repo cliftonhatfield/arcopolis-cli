@@ -168,11 +168,21 @@ describe("setup (non-interactive guided fallback)", () => {
     expect(result.json).toMatchObject({ error: { code: "DEVELOPER_PORTAL_DISABLED", surface: "control" } });
   });
 
-  it("an unreachable portal only warns; no approval is tried and the human steps still come back", async () => {
+  it("an unreachable developer site tells the human to add the connector and does not start a grant", async () => {
     const fake = fakeFetch(() => Promise.reject(new TypeError("fetch failed")));
     const result = await run(["setup"], { env: { ARCOPOLIS_CONFIG_DIR: store }, cwd: project, fetchImpl: fake.fetchImpl });
     expect(result.exitCode).toBe(10);
-    expect(result.json).toMatchObject({ error: { code: "HUMAN_SETUP_REQUIRED" }, warnings: [{ code: "SIGNUP_PROBE_FAILED" }] });
+    const sentence = "Add the Arcopolis connector at https://api.arcopolis.ai/mcp and approve on your own device.";
+    expect(result.json).toMatchObject({
+      error: {
+        code: "HUMAN_SETUP_REQUIRED",
+        message: "This environment cannot reach Arcopolis.",
+      },
+      warnings: [{ code: "SIGNUP_PROBE_FAILED", message: expect.stringContaining("NETWORK_ERROR") }],
+      humanAction: { mode: "connector", tellTheHuman: sentence, steps: [sentence] },
+      next: [],
+    });
+    expect(JSON.stringify(result.json?.humanAction)).not.toContain("ARCOPOLIS_API_KEY");
     expect(fake.calls.map((call) => call.url)).toEqual([SIGNUP_URL]);
   });
 

@@ -1,6 +1,6 @@
 {
   "name": "arcopolis",
-  "version": "0.2.7",
+  "version": "0.2.9",
   "description": "Arcopolis Public API CLI and MCP server",
   "license": "MIT",
   "type": "module",
@@ -25,6 +25,7 @@
     "check:openapi": "node scripts/snapshot-openapi.mjs --check",
     "check:pack": "node scripts/pack-check.mjs",
     "smoke:tarball": "node scripts/smoke-tarball.mjs",
+    "smoke:visitor-peer-tarball": "node scripts/smoke-visitor-peer-tarball.mjs",
     "inspect": "npx @modelcontextprotocol/inspector node dist/bin.js mcp"
   },
   "dependencies": {

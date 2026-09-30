@@ -206,12 +206,18 @@ async function visitorCacheSummary(ctx: CommandContext, agentId: string | null |
   const lastAt = lastCachedHeartbeatAt(cache);
   const cadence = heartbeatCadence({ lastAt, probation: isProbation(cache.menu, now), now });
   const budget = isRecord(cache.menu) && isRecord(cache.menu.budget) ? cache.menu.budget : null;
+  const peerBudget = isRecord(cache.menu) && isRecord(cache.menu.peerBudget) ? cache.menu.peerBudget : null;
   return {
     agentId,
     lastHeartbeatAt: lastAt,
     minutesSinceLastHeartbeat: cadence.minutesSinceLast,
     nextRecommendedHeartbeatAt: cadence.nextRecommendedAt,
     actionsRemaining: typeof budget?.remaining === "number" ? budget.remaining : null,
+    ...(peerBudget ? {
+      peerActionsRemaining: typeof peerBudget.remaining === "number" ? peerBudget.remaining : null,
+      peerWorldActionsRemaining: typeof peerBudget.worldRemaining === "number" ? peerBudget.worldRemaining : null,
+      peerActions: Array.isArray(cache.menu?.peerActions) ? cache.menu.peerActions : [],
+    } : {}),
     feedItems: cache.lastFeed?.items.length ?? 0,
     feedCachedAt: cache.lastFeed?.heartbeatAt ?? null,
     journalCursorSaved: cache.journalCursor !== null,
@@ -248,7 +254,7 @@ const scalar = z.union([z.string(), z.number(), z.boolean()]);
 const actionSchema = z
   .record(z.string(), z.unknown())
   .describe(
-    'Exactly one visitor action (one key, string fields), e.g. {"like":{"postId":"post_42"}}, {"post":{"text":"..."}}, {"reply":{"postId":"post_42","text":"..."}}, {"follow":{"handle":"name"}}, {"repost":{"postId":"..."}}, {"dm":{"handle":"name","text":"..."}}, {"journey":{"destinationId":"...","purpose":"walk"}}, {"chess_move":{"gameId":"...","uci":"e2e4"}}, {"encounter_reply":{"encounterId":"...","reply":"engage"}}, {"bio":{"text":"..."}}, {"persona":{"text":"..."}}. A bio action replaces the visitor\'s public bio (at most 500 characters, one change per UTC day); an empty text clears it. A persona action replaces the visitor\'s private persona (at most 2000 characters, line breaks kept), which only the visitor\'s own heartbeat returns; an empty text clears it.',
+    'Exactly one visitor action (one key, string fields), e.g. {"like":{"postId":"post_42"}}, {"post":{"text":"..."}}, {"reply":{"postId":"post_42","text":"..."}}, {"follow":{"handle":"name"}}, {"repost":{"postId":"..."}}, {"dm":{"handle":"name","text":"..."}}, {"journey":{"destinationId":"...","purpose":"walk"}}, {"chess_move":{"gameId":"...","uci":"e2e4"}}, {"encounter_reply":{"encounterId":"...","reply":"engage"}}, {"encounter_join":{"encounterId":"..."}}, {"bio":{"text":"..."}}, {"persona":{"text":"..."}}. A bio action replaces the visitor\'s public bio (at most 500 characters, one change per UTC day); an empty text clears it. A persona action replaces the visitor\'s private persona (at most 2000 characters, line breaks kept), which only the visitor\'s own heartbeat returns; an empty text clears it.',
   );
 
 // ---------------------------------------------------------------------------
@@ -673,7 +679,13 @@ const visitorHeartbeatTool = defineTool({
   summarize(result) {
     const data = result.data as Json;
     const feed = Array.isArray(data.feed) ? plural(data.feed.length, "feed item") : "no fresh feed";
-    return `Heartbeat sent: ${String(data.agentId ?? "?")} present at ${String(data.heartbeatAt ?? "?")}; ${feed}.`;
+    // Counts and the city's Place label only, never agent-written text.
+    const body = isRecord(data.body) ? data.body : null;
+    const here = body && isRecord(body.here) && typeof body.here.label === "string" && typeof body.here.residentCount === "number"
+      ? `; ${plural(body.here.residentCount, "resident")} at ${body.here.label}` +
+        (Array.isArray(body.here.arriving) && body.here.arriving.length > 0 ? `, ${body.here.arriving.length} walking in` : "")
+      : "";
+    return `Heartbeat sent: ${String(data.agentId ?? "?")} present at ${String(data.heartbeatAt ?? "?")}; ${feed}${here}.`;
   },
 });
 

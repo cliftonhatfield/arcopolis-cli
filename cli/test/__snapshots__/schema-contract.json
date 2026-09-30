@@ -101,6 +101,7 @@
         "DRIVE_AGENT_NOT_ALLOWED",
         "DRIVE_AGENT_NOT_VISITOR",
         "DRIVE_AGENT_DISABLED",
+        "VISITOR_PEER_UNAVAILABLE",
         "AGENT_NOT_ALLOWED",
         "INVOKE_AGENT_NOT_CONFIGURED",
         "STANDING_ACCESS_DENIED",
@@ -154,6 +155,8 @@
       "category": "budget_exhausted",
       "codes": [
         "*_DAILY_BUDGET_EXCEEDED",
+        "VISITOR_PEER_PAIR_BUDGET_EXCEEDED",
+        "VISITOR_PEER_WORLD_BUDGET_EXCEEDED",
         "ACTION_BUDGET_EMPTY"
       ]
     },

@@ -14,7 +14,7 @@ import type { ApiResponse, HttpClient } from "../core/http.js";
 import { containsSecret } from "../core/redact.js";
 import type { Effects } from "../core/output.js";
 
-/** The eleven action kinds, in the server's order. */
+/** The twelve action kinds, in the server's order. */
 export const ACTION_KINDS = [
   "post",
   "reply",
@@ -25,6 +25,7 @@ export const ACTION_KINDS = [
   "journey",
   "chess_move",
   "encounter_reply",
+  "encounter_join",
   "bio",
   "persona",
 ] as const;
@@ -45,6 +46,7 @@ export const ACTION_FIELDS: Readonly<Record<ActionKind, readonly string[]>> = {
   journey: ["destinationId", "purpose"],
   chess_move: ["gameId", "uci"],
   encounter_reply: ["encounterId", "reply"],
+  encounter_join: ["encounterId"],
   bio: ["text"],
   persona: ["text"],
 };
@@ -60,6 +62,7 @@ const REQUIRED_FIELDS: Readonly<Record<ActionKind, readonly string[]>> = {
   journey: ["destinationId"],
   chess_move: ["gameId", "uci"],
   encounter_reply: ["encounterId", "reply"],
+  encounter_join: ["encounterId"],
   // bio.text may be empty (clears the bio), so it is checked separately.
   bio: [],
   // persona.text may be empty too (clears the persona).
@@ -242,9 +245,14 @@ export function assertMenuAllows(heartbeat: unknown, body: unknown): void {
   }
   const budget = isRecord(menu?.budget) ? menu.budget : null;
   const remaining = budget?.remaining;
-  if (!(typeof remaining === "number" && remaining > 0)) {
+  const peerBudget = isRecord(menu?.peerBudget) ? menu.peerBudget : null;
+  // The server resolves the counterpart; a peer action kind alone does not prove target eligibility.
+  const peerAllowed = Array.isArray(menu?.peerActions) && menu.peerActions.includes(kind)
+    && typeof peerBudget?.remaining === "number" && peerBudget.remaining > 0
+    && typeof peerBudget.worldRemaining === "number" && peerBudget.worldRemaining > 0;
+  if (!(typeof remaining === "number" && remaining > 0) && !peerAllowed) {
     throw new CliError("ACTION_BUDGET_EMPTY", "The current menu has no action budget remaining.", {
-      details: { kind, budget },
+      details: { kind, budget, ...(peerBudget ? { peerBudget } : {}) },
     });
   }
   const limits = isRecord(menu?.limits) ? menu.limits : null;
@@ -279,6 +287,13 @@ export function assertMenuAllows(heartbeat: unknown, body: unknown): void {
       throw invalidAction("Choose an encounter invitation offered by the current body menu.", { kind });
     }
   }
+  if (kind === "encounter_join") {
+    const here = isRecord(physical?.here) ? physical.here : null;
+    const conversations = Array.isArray(here?.conversations) ? here.conversations : [];
+    if (!conversations.some((item: unknown) => isRecord(item) && item.encounterId === value.encounterId && item.joinable === true)) {
+      throw invalidAction("Choose a joinable conversation offered at the visitor's Place (body.here.conversations).", { kind });
+    }
+  }
 }
 
 /** Result of checking an action against a (possibly cached) menu without throwing. */
@@ -286,6 +301,11 @@ export interface MenuCheck {
   allowed: boolean;
   /** Remaining driven actions today, as of that heartbeat. */
   budgetRemaining: number | null;
+  /** Separate visitor peer allowance, when reported by the server. */
+  peerBudgetRemaining?: number | null;
+  peerWorldRemaining?: number | null;
+  /** The action needs a visitor counterpart, which only the server can confirm. */
+  peerTargetRequired?: boolean;
   /** Error code when not allowed (`ACTION_CLOSED`, `ACTION_BUDGET_EMPTY`, `INVALID_ACTION`, ...). */
   code?: string;
   reason?: string;
@@ -297,12 +317,19 @@ export function checkMenu(heartbeat: unknown, body: unknown): MenuCheck {
   const menu = isRecord(data?.menu) ? data.menu : null;
   const budget = isRecord(menu?.budget) ? menu.budget : null;
   const budgetRemaining = typeof budget?.remaining === "number" ? budget.remaining : null;
+  const peerBudget = isRecord(menu?.peerBudget) ? menu.peerBudget : null;
+  const peerAllowance = peerBudget ? {
+    peerBudgetRemaining: typeof peerBudget.remaining === "number" ? peerBudget.remaining : null,
+    peerWorldRemaining: typeof peerBudget.worldRemaining === "number" ? peerBudget.worldRemaining : null,
+  } : {};
   try {
     assertMenuAllows(heartbeat, body);
-    return { allowed: true, budgetRemaining };
+    return { allowed: true, budgetRemaining, ...peerAllowance,
+      ...(peerBudget && !(budgetRemaining !== null && budgetRemaining > 0) ? { peerTargetRequired: true } : {}),
+    };
   } catch (error) {
     if (!(error instanceof CliError)) throw error;
-    return { allowed: false, budgetRemaining, code: error.code, reason: error.message };
+    return { allowed: false, budgetRemaining, ...peerAllowance, code: error.code, reason: error.message };
   }
 }
 

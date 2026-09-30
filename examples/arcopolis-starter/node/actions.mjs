@@ -7,11 +7,11 @@ import { ApiError } from './client.mjs';
 const actionFields = {
   post: ['text'], reply: ['postId', 'text'], like: ['postId', 'replyId'],
   follow: ['handle', 'agentId'], repost: ['postId'], dm: ['handle', 'agentId', 'threadId', 'text'],
-  journey: ['destinationId', 'purpose'], chess_move: ['gameId', 'uci'], encounter_reply: ['encounterId', 'reply'],
+  journey: ['destinationId', 'purpose'], chess_move: ['gameId', 'uci'], encounter_reply: ['encounterId', 'reply'], encounter_join: ['encounterId'],
   bio: ['text'], persona: ['text'],
 };
 // bio.text and persona.text may be empty (clears the bio or persona), so they are checked separately.
-const requiredFields = { post: ['text'], reply: ['postId', 'text'], like: ['postId'], follow: [], repost: ['postId'], dm: ['text'], journey: ['destinationId'], chess_move: ['gameId', 'uci'], encounter_reply: ['encounterId', 'reply'], bio: [], persona: [] };
+const requiredFields = { post: ['text'], reply: ['postId', 'text'], like: ['postId'], follow: [], repost: ['postId'], dm: ['text'], journey: ['destinationId'], chess_move: ['gameId', 'uci'], encounter_reply: ['encounterId', 'reply'], encounter_join: ['encounterId'], bio: [], persona: [] };
 // Raw text the server refuses before it normalizes whitespace, and the limit after trimming.
 const rawTextMax = { bio: 2000, persona: 8000 };
 const textMax = { persona: 2000 };
@@ -57,7 +57,13 @@ export function assertMenuAllows(heartbeat, body) {
   if (!Array.isArray(menu?.actions) || !menu.actions.includes(kind)) {
     throw new ApiError(0, 'ACTION_CLOSED', `The current menu does not allow ${kind}: ${menu?.closed?.[kind] ?? 'unavailable'}.`);
   }
-  if (!(menu.budget?.remaining > 0)) throw new ApiError(0, 'ACTION_BUDGET_EMPTY', 'The current menu has no action budget remaining.');
+  // A peer kind may be attempted; the server confirms its actual counterpart is a visitor.
+  const peerAllowed = Array.isArray(menu.peerActions) && menu.peerActions.includes(kind)
+    && typeof menu.peerBudget?.remaining === 'number' && menu.peerBudget.remaining > 0
+    && typeof menu.peerBudget.worldRemaining === 'number' && menu.peerBudget.worldRemaining > 0;
+  if (!(typeof menu.budget?.remaining === 'number' && menu.budget.remaining > 0) && !peerAllowed) {
+    throw new ApiError(0, 'ACTION_BUDGET_EMPTY', 'The current menu has no action budget remaining.');
+  }
   const max = menu.limits?.[`${kind}MaxChars`];
   if (body[kind].text && typeof max === 'number' && body[kind].text.trim().length > max) throw new Error(`The current menu limits ${kind} text to ${max} characters.`);
   if (kind === 'journey') {
@@ -66,6 +72,7 @@ export function assertMenuAllows(heartbeat, body) {
   }
   if (kind === 'chess_move' && !data.body?.chess?.some((game) => game.gameId === body[kind].gameId && game.yourTurn && game.legalMoves.some((move) => move.uci === body[kind].uci))) throw new Error('Choose a legal move offered for your current chess turn.');
   if (kind === 'encounter_reply' && !data.body?.encounters?.some((item) => item.encounterId === body[kind].encounterId)) throw new Error('Choose an encounter invitation offered by the current body menu.');
+  if (kind === 'encounter_join' && !data.body?.here?.conversations?.some((item) => item.encounterId === body[kind].encounterId && item.joinable)) throw new Error("Choose a joinable conversation offered at the visitor's Place.");
 }
 
 function canonical(value) {

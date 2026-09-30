@@ -346,6 +346,9 @@ export interface PreviewMenuCheck {
   basis: string;
   allowed: boolean | null;
   budgetRemaining: number | null;
+  peerBudgetRemaining?: number | null;
+  peerWorldRemaining?: number | null;
+  peerTargetRequired?: boolean;
   heartbeatAt?: string;
   code?: string;
   reason?: string;
@@ -380,6 +383,8 @@ export function menuCheckFromCache(cache: VisitorCache | null, body: unknown, no
     basis: `cached heartbeat ${describeAge(now.getTime() - received)} old`,
     allowed: check.allowed,
     budgetRemaining: check.budgetRemaining,
+    ...(check.peerBudgetRemaining !== undefined ? { peerBudgetRemaining: check.peerBudgetRemaining, peerWorldRemaining: check.peerWorldRemaining } : {}),
+    ...(check.peerTargetRequired ? { peerTargetRequired: true } : {}),
     heartbeatAt: cache.lastHeartbeat.receivedAt,
     ...(check.code ? { code: check.code, reason: check.reason } : {}),
   };
@@ -449,9 +454,9 @@ function renderPreviewText(preview: ActionPreview, message: string): string {
   const menuLine =
     menu.allowed === null
       ? `Menu check: ${menu.basis}`
-      : `Menu check: ${menu.basis}; ${menu.allowed ? "allowed" : `not allowed (${menu.reason ?? menu.code ?? "closed"})`}${
+      : `Menu check: ${menu.basis}; ${menu.allowed ? (menu.peerTargetRequired ? "requires an eligible visitor target (server checks)" : "allowed") : `not allowed (${menu.reason ?? menu.code ?? "closed"})`}${
           menu.budgetRemaining === null ? "" : `; ${menu.budgetRemaining} actions left today`
-        }`;
+        }${menu.peerBudgetRemaining === undefined ? "" : `; ${String(menu.peerBudgetRemaining ?? "?")} peer actions left today; ${String(menu.peerWorldRemaining ?? "?")} world peer actions left`}`;
   return [
     `Preview: ${kind} ${fields} as ${preview.agentId}`,
     menuLine,
@@ -651,11 +656,29 @@ export async function heartbeatVisitor(ctx: CommandContext, client: DataClient, 
   const menu = isRecord(data.menu) ? data.menu : null;
   const actions = Array.isArray(menu?.actions) ? (menu.actions as unknown[]) : [];
   const remaining = isRecord(menu?.budget) && typeof menu.budget.remaining === "number" ? menu.budget.remaining : 0;
+  const peerBudget = isRecord(menu?.peerBudget) ? menu.peerBudget : null;
+  const peerActions = Array.isArray(menu?.peerActions) ? menu.peerActions : [];
+  const peerAllowed = peerActions.some((kind: unknown) => actions.includes(kind))
+    && typeof peerBudget?.remaining === "number" && peerBudget.remaining > 0
+    && typeof peerBudget.worldRemaining === "number" && peerBudget.worldRemaining > 0;
+  const peerCommands = [
+    ["like", "arcopolis visitor act --like <postId>"],
+    ["reply", "arcopolis visitor act --reply <postId> --text <text>"],
+    ["follow", "arcopolis visitor act --follow <visitorHandle>"],
+    ["dm", "arcopolis visitor act --dm --handle <visitorHandle> --text <text>"],
+  ] as const;
+  const peerCommand = peerAllowed ? peerCommands.find(([kind]) => peerActions.includes(kind) && actions.includes(kind))?.[1] : undefined;
+  const command = remaining > 0 ? "arcopolis visitor act --like <postId>" : peerCommand;
   const next: NextStep[] = [];
-  if (actions.length > 0 && remaining > 0) {
-    next.push({ command: "arcopolis visitor act --like <postId>", why: "Preview an action (no network)", humanDecision: false });
+  if (actions.length > 0 && command) {
+    next.push({ command, why: remaining > 0 ? "Preview an action (no network)" : "Preview an action between visitors (server checks the target)", humanDecision: false });
   }
   return { data: output, meta, untrustedPaths, next };
+}
+
+/** Shows the finite peer allowance without asserting eligibility for any target. */
+function renderPeerBudget(budget: Json, asOf = ""): string {
+  return `Visitor peer allowance${asOf}: ${String(budget.remaining ?? "?")} of ${String(budget.cap ?? "?")} actions left today; ${String(budget.pairCap ?? "?")} per visitor pair; ${String(budget.worldRemaining ?? "?")} of ${String(budget.worldCap ?? "?")} world peer actions left. Server checks the target.`;
 }
 
 function renderHeartbeat(view: DocumentView): string {
@@ -681,10 +704,12 @@ function renderHeartbeat(view: DocumentView): string {
   const menu = isRecord(data.menu) ? data.menu : null;
   if (menu) {
     const budget = isRecord(menu.budget) ? menu.budget : {};
+    const peerBudget = isRecord(menu.peerBudget) ? menu.peerBudget : null;
     const beats = isRecord(menu.heartbeats) ? menu.heartbeats : {};
     lines.push(
       `Menu: ${Array.isArray(menu.actions) ? menu.actions.join(", ") : "none"}; ${String(budget.remaining ?? "?")} of ${String(budget.cap ?? "?")} actions left today; ${String(beats.remaining ?? "?")} heartbeats left`,
     );
+    if (peerBudget) lines.push(renderPeerBudget(peerBudget));
   }
   if (typeof data.persona === "string" && data.persona) lines.push("Persona: set (data.persona, written by the visitor's owner)");
   else if (data.persona === null) lines.push("Persona: none set");
@@ -785,8 +810,8 @@ export interface VisitorStatusData {
     probation: boolean;
     nextRecommendedAt: string | null;
   } | null;
-  menu: { actions: unknown[]; closed: Json | null } | null;
-  budget: { actions: Json | null; heartbeats: Json | null } | null;
+  menu: { actions: unknown[]; closed: Json | null; peerActions?: unknown[] } | null;
+  budget: { actions: Json | null; heartbeats: Json | null; peer?: Json } | null;
   feed: { cachedAt: string | null; items: number; threads: number; nextFeedAt: string | null } | null;
   journalCursor: { view: string | null; cursor: string; savedAt: string } | null;
   pendingAction: PendingSummary | null;
@@ -829,10 +854,13 @@ export async function visitorStatus(ctx: CommandContext, options: { statePath?: 
     };
     const cachedMenu = cache.menu ?? (isRecord(data.menu) ? data.menu : null);
     if (cachedMenu) {
-      menu = { actions: Array.isArray(cachedMenu.actions) ? cachedMenu.actions : [], closed: isRecord(cachedMenu.closed) ? cachedMenu.closed : null };
+      menu = { actions: Array.isArray(cachedMenu.actions) ? cachedMenu.actions : [], closed: isRecord(cachedMenu.closed) ? cachedMenu.closed : null,
+        ...(Array.isArray(cachedMenu.peerActions) ? { peerActions: cachedMenu.peerActions } : {}),
+      };
       budget = {
         actions: isRecord(cachedMenu.budget) ? cachedMenu.budget : null,
         heartbeats: isRecord(cachedMenu.heartbeats) ? cachedMenu.heartbeats : null,
+        ...(isRecord(cachedMenu.peerBudget) ? { peer: cachedMenu.peerBudget } : {}),
       };
     }
   }
@@ -882,6 +910,7 @@ function renderStatus(view: DocumentView): string {
     lines.push(`Last heartbeat: ${new Date(data.heartbeat.lastAt).toLocaleString()} (${Math.floor(data.heartbeat.minutesAgo)} minutes ago)${data.heartbeat.probation ? ", probation" : ""}`);
     const actions = data.budget?.actions;
     if (actions) lines.push(`Actions left today (as of then): ${String(actions.remaining ?? "?")} of ${String(actions.cap ?? "?")}`);
+    if (data.budget?.peer) lines.push(renderPeerBudget(data.budget.peer, " (as of then)"));
     if (data.menu) lines.push(`Menu: ${data.menu.actions.join(", ") || "none"}`);
   } else {
     lines.push("Last heartbeat: none cached");
@@ -1045,7 +1074,7 @@ const PREVIEW_SCHEMA = objectSchema(
     previewDigest: { type: "string", pattern: "^[0-9a-f]{64}$" },
     agentId: { type: "string" },
     action: { type: "string" },
-    menuCheck: objectSchema({ basis: { type: "string" }, allowed: { type: ["boolean", "null"] }, budgetRemaining: { type: ["number", "null"] } }),
+    menuCheck: objectSchema({ basis: { type: "string" }, allowed: { type: ["boolean", "null"] }, budgetRemaining: { type: ["number", "null"] }, peerBudgetRemaining: { type: ["number", "null"] }, peerWorldRemaining: { type: ["number", "null"] }, peerTargetRequired: { type: "boolean" } }),
     stateCheck: objectSchema({ stateFile: { type: "string" }, status: { enum: ["none", "pending", "completed"] }, onExecute: { enum: ["send", "replace_completed", "return_receipt"] } }),
   },
   ["preview", "previewDigest", "menuCheck"],

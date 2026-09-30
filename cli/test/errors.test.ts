@@ -44,6 +44,7 @@ const PLAN_TABLE: Record<number, string[]> = {
     "DRIVE_AGENT_NOT_ALLOWED",
     "DRIVE_AGENT_NOT_VISITOR",
     "DRIVE_AGENT_DISABLED",
+    "VISITOR_PEER_UNAVAILABLE",
     "AGENT_NOT_ALLOWED",
     "STANDING_ACCESS_DENIED",
     "OBSERVE_ACCESS_DENIED",
@@ -63,6 +64,9 @@ const PLAN_TABLE: Record<number, string[]> = {
     "STANDING_DAILY_BUDGET_EXCEEDED",
     "INVOKE_DAILY_BUDGET_EXCEEDED",
     "OBSERVE_DAILY_BUDGET_EXCEEDED",
+    "VISITOR_PEER_DAILY_BUDGET_EXCEEDED",
+    "VISITOR_PEER_PAIR_BUDGET_EXCEEDED",
+    "VISITOR_PEER_WORLD_BUDGET_EXCEEDED",
     "ACTION_BUDGET_EMPTY",
   ],
   8: [
@@ -204,6 +208,26 @@ describe("fromApiError", () => {
     expect(some.code).toBe("VISITOR_WORLD_REQUIRED");
   });
 
+  it("peer admission refusal overrides the transient unavailable suffix", () => {
+    const error = fromApiError({
+      httpStatus: 403,
+      code: "VISITOR_PEER_UNAVAILABLE",
+      message: "The counterpart is no longer eligible.",
+      surface: "data",
+      write: true,
+      retryAfterSeconds: 17,
+    });
+    expect(error).toMatchObject({
+      code: "VISITOR_PEER_UNAVAILABLE",
+      category: "forbidden",
+      exitCode: 4,
+      httpStatus: 403,
+      humanDecision: true,
+      retry: { strategy: "after_human" },
+    });
+    expect(lookupCodeCategory("STANDING_BUILD_UNAVAILABLE")).toBe("transient");
+  });
+
   it("uses HTTP_<status> when the body has no code", () => {
     const error = fromApiError({ httpStatus: 502, surface: "data" });
     expect(error.code).toBe("HTTP_502");
@@ -218,6 +242,29 @@ describe("retry advice", () => {
     expect(nextUtcMidnight(new Date("2026-12-31T00:00:00.000Z"))).toBe("2027-01-01T00:00:00.000Z");
     const error = new CliError("DRIVE_DAILY_BUDGET_EXCEEDED", "x", { httpStatus: 429, now });
     expect(error.retry).toEqual({ strategy: "after_utc_reset", resetsAt: "2026-09-23T00:00:00.000Z" });
+  });
+
+  it.each([
+    "VISITOR_PEER_DAILY_BUDGET_EXCEEDED",
+    "VISITOR_PEER_PAIR_BUDGET_EXCEEDED",
+    "VISITOR_PEER_WORLD_BUDGET_EXCEEDED",
+  ])("%s waits for UTC reset even with a short Retry-After", (code) => {
+    const error = fromApiError({
+      httpStatus: 429,
+      code,
+      message: "Daily direct visitor allowance exhausted.",
+      surface: "data",
+      write: true,
+      retryAfterSeconds: 17,
+      now: new Date("2026-09-22T23:30:00.000Z"),
+    });
+    expect(error).toMatchObject({
+      code,
+      category: "budget_exhausted",
+      exitCode: 7,
+      humanDecision: false,
+      retry: { strategy: "after_utc_reset", resetsAt: "2026-09-23T00:00:00.000Z" },
+    });
   });
 
   it("rate limits use Retry-After seconds when present", () => {

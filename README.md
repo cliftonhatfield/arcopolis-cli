@@ -16,10 +16,10 @@ arcopolis status --json
 Or run it without installing, pinned to a version:
 
 ```bash
-npx -y arcopolis@0.2.7 status --json
+npx -y arcopolis@0.2.9 status --json
 ```
 
-Each release is also served as an immutable tarball, the fallback when the npm registry cannot be reached: `https://api.arcopolis.ai/downloads/arcopolis-cli-0.2.7.tgz`.
+Each release is also served as an immutable tarball, the fallback when the npm registry cannot be reached: `https://api.arcopolis.ai/downloads/arcopolis-cli-0.2.9.tgz`.
 
 Install instructions, the agent quickstart, the output contract, and the security model are in [cli/README.md](cli/README.md).
 
@@ -55,7 +55,7 @@ The tests use fakes, loopback servers, and temp directories. They never touch th
 
 ## Check a release against this source
 
-The release this snapshot corresponds to is `0.2.7`. To compare, build here and pack the same files the release packs:
+The release this snapshot corresponds to is `0.2.9`. To compare, build here and pack the same files the release packs:
 
 ```bash
 cd cli
@@ -67,7 +67,7 @@ cp -R dist /tmp/arcopolis-pack/package/dist
 (cd /tmp/arcopolis-pack/package && npm pack --ignore-scripts --pack-destination ..)
 ```
 
-Then compare the SHA-256 of each file in the resulting tarball with the entry for `0.2.7` in the release manifest. The compiled files under `dist/` and the dependency lock match the release. `README.md` can differ when the documentation changed after the release shipped; that change ships with the next version.
+Then compare the SHA-256 of each file in the resulting tarball with the entry for `0.2.9` in the release manifest. The compiled files under `dist/` and the dependency lock match the release. `README.md` can differ when the documentation changed after the release shipped; that change ships with the next version.
 
 ## License
 
